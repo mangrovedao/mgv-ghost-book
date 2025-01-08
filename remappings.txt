@@ -1,0 +1,7 @@
+@openzeppelin-contracts-5.1.0/=dependencies/@openzeppelin-contracts-5.1.0/
+forge-std-1.9.5/=dependencies/forge-std-1.9.5/
+@mgv/src/=dependencies/mangrove-core-2.1.0/src/
+@mgv/lib/=dependencies/mangrove-core-2.1.0/lib/
+@mgv/test/=dependencies/mangrove-core-2.1.0/test/
+@mgv/script/=dependencies/mangrove-core-2.1.0/script/
+@mgv/forge-std/=dependencies/forge-std-1.9.5/src/

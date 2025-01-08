@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["dependencies"]
+
+[dependencies]
+forge-std = "1.9.5"
+"@openzeppelin-contracts" = "5.1.0"
+mangrove-core = { version = "2.1.0", git = "git@github.com:mangrovedao/mangrove-core.git", rev = "6fa9a5716753e577f127d1b1511304add0b386eb" }
+
+[soldeer]
+# whether soldeer manages remappings
+remappings_generated = false
+# whether soldeer re-generates all remappings when installing, updating or uninstalling deps
+remappings_regenerate = false
+# whether to suffix the remapping with the version: `name-a.b.c`
+remappings_version = false
+
+[fmt]
+tab_width = 2
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
