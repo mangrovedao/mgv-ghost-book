@@ -31,10 +31,3 @@ name = "mangrove-core"
 version = "2.1.0"
 git = "https://github.com/mangrovedao/mangrove-core.git"
 rev = "6fa9a5716753e577f127d1b1511304add0b386eb"
-
-[[dependencies]]
-name = "solady"
-version = "0.0.288"
-url = "https://soldeer-revisions.s3.amazonaws.com/solady/0_0_288_30-12-2024_12:27:37_solady.zip"
-checksum = "73d9a1b67a2ea2fefbaa6dfbfd1491ec3d16ac1cb83d526a87ed0e6cf9d421a7"
-integrity = "ed5cef23b44bf397850924d5fb9d695ec54ac61ba117b4bd95e1838093fe5494"

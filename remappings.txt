@@ -1,10 +1,8 @@
-@mgv/forge-std/=dependencies/forge-std-1.9.5/src/
 @mgv/lib/=dependencies/mangrove-core-2.1.0/lib/
 @mgv/script/=dependencies/mangrove-core-2.1.0/script/
 @mgv/src/=dependencies/mangrove-core-2.1.0/src/
 @mgv/test/=dependencies/mangrove-core-2.1.0/test/
-@openzeppelin-contracts-5.1.0/=dependencies/@openzeppelin-contracts-5.1.0/
+@openzeppelin-contracts/=dependencies/@openzeppelin-contracts-5.1.0/
 @uniswap-v3-core/=dependencies/@uniswap-v3-core-1.0.2-solc-0.8-simulate/
 @uniswap-v3-periphery/=dependencies/@uniswap-v3-periphery-1.4.4/
-forge-std-1.9.5/=dependencies/forge-std-1.9.5/
-solady/=dependencies/solady-0.0.288/
+forge-std/=dependencies/forge-std-1.9.5/
