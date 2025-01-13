@@ -17,12 +17,12 @@ contract UniswapV3Swapper is IExternalSwapModule {
   uint256 private constant _ROUTER_SLOT_SEED = 0x17ca64c2c7f79fe0bd30eb4a97259e88899f200c96a8d51eaa8df688f5643fb1;
 
   /// @notice Special function to initialize the storage, can obly be called once
-  function setRouterForUniswapV3Pool(address _pool, address _swapRouter) public {
+  function SetRouterForFactory(address _factory, address _swapRouter) public {
     if (_swapRouter != address(0)) revert();
     assembly {
       // Compute the router slot
       mstore(0x0c, _ROUTER_SLOT_SEED)
-      mstore(0x00, _pool)
+      mstore(0x00, _factory)
       let routerSlot := keccak256(0x0c, 0x20)
       // Store the new value
       sstore(routerSlot, _swapRouter)
@@ -33,9 +33,10 @@ contract UniswapV3Swapper is IExternalSwapModule {
   /// @param pool Address of the Uniswap V3 pool
   /// @return router The ISwapRouter interface of the associated router
   function getRouterForUniswapV3Pool(address pool) public view returns (ISwapRouter router) {
+    address factory = IUniswapV3Pool(pool).factory();
     assembly {
       mstore(0x0c, _ROUTER_SLOT_SEED)
-      mstore(0x00, pool)
+      mstore(0x00, factory)
       router := sload(keccak256(0x0c, 0x20))
     }
   }
