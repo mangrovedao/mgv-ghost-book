@@ -29,7 +29,9 @@ contract UniswapV3Swapper is IExternalSwapModule {
     }
   }
 
-  /// @notice Returns the swap router used in this ocntract
+  /// @notice Retrieves the swap router associated with a specific pool
+  /// @param pool Address of the Uniswap V3 pool
+  /// @return router The ISwapRouter interface of the associated router
   function getRouterForUniswapV3Pool(address pool) public view returns (ISwapRouter router) {
     assembly {
       mstore(0x0c, _ROUTER_SLOT_SEED)
@@ -39,7 +41,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
   }
 
   /// @dev Helper function to convert from Mangrove tick to Uniswap tick as prices are represented differently
-  function _convertToUniswapTick(address inboundToken, address outboundToken, IUniswapV3Pool pool, int24 mgvTick)
+  function _convertToUniswapTick(address inboundToken, IUniswapV3Pool pool, int24 mgvTick)
     internal
     view
     returns (int24)
@@ -53,10 +55,12 @@ contract UniswapV3Swapper is IExternalSwapModule {
 
   /// @inheritdoc IExternalSwapModule
   function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, address pool, bytes memory data) public {
+    // Ignore compiler warnings
+    data;
     if (msg.sender != address(this)) revert GhostBookErrors.OnlyThisContractCanCallThisFunction();
 
     int24 mgvTick = int24(Tick.unwrap(maxTick));
-    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, IUniswapV3Pool(pool), mgvTick);
+    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, IUniswapV3Pool(pool), mgvTick);
 
     // Perform swap with price limit
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
