@@ -35,8 +35,9 @@ contract UniswapV3Swapper is IExternalSwapModule {
   /// @param router Address of the router to use for this factory
   function setRouterForFactory(address factory, address router) external {
     // TODO: Implement proper admin check considering delegatecall context
-    if (getRoutersMapping()[factory] != address(0)) revert RouterAlreadySet();
-    getRoutersMapping()[factory] = router;
+    mapping(address => address) storage routers = getRoutersMapping();
+    if (routers[factory] != address(0)) revert RouterAlreadySet();
+    routers[factory] = router;
   }
 
 
