@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
+import {Tick} from "@mgv/lib/core/TickLib.sol";
 import {ISwapRouter} from "@uniswap-v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
-import {Tick} from "@mgv/lib/core/TickLib.sol";
 
 /// @title UniswapV3Swapper - A generalized Uniswap V3 integration to perform limit order swaps in any Uniswap V3 implementation.
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
@@ -19,7 +19,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
   error RouterAlreadySet();
   error Unauthorized();
 
-
   /// @dev Returns the routers mapping storage
   /// @return routers The mapping from factory addresses to router addresses
   function getRoutersMapping() internal pure returns (mapping(address => address) storage routers) {
@@ -27,7 +26,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
       routers.slot := ROUTERS_POSITION
     }
   }
-
 
   /// @notice Sets the router for a specific factory
   /// @dev Only callable by the owner of the main contract
@@ -39,7 +37,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
     if (routers[factory] != address(0)) revert RouterAlreadySet();
     routers[factory] = router;
   }
-
 
   /// @notice Retrieves the swap router associated with a specific pool
   /// @param pool Address of the Uniswap V3 pool
@@ -78,11 +75,11 @@ contract UniswapV3Swapper is IExternalSwapModule {
   }
 
   /// @dev Helper function to convert from Mangrove tick to Uniswap tick as prices are represented differently
-  function _convertToUniswapTick(
-    address inboundToken,
-    address outboundToken,
-    int24 mgvTick
-  ) internal pure returns (int24) {
+  function _convertToUniswapTick(address inboundToken, address outboundToken, int24 mgvTick)
+    internal
+    pure
+    returns (int24)
+  {
     // Compare addresses to determine token ordering without storage reads
     // If inbound token has lower address, it's token0 in Uniswap
     return inboundToken < outboundToken ? -mgvTick : mgvTick;
