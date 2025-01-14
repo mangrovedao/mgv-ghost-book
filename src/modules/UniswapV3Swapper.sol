@@ -52,7 +52,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
   function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, address pool, bytes memory data) public {
     // Ignore compiler warnings
     data;
-    if (msg.sender != address(this)) revert GhostBookErrors.OnlyThisContractCanCallThisFunction();
 
     int24 mgvTick = int24(Tick.unwrap(maxTick));
     int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, pool, mgvTick);
