@@ -6,6 +6,20 @@ checksum = "fd3d1ea561cb27897008aee18ada6e85f248eb161c86e4435272fc2b5777574f"
 integrity = "cb6cf6e878f2943b2291d5636a9d72ac51d43d8135896ceb6cf88d36c386f212"
 
 [[dependencies]]
+name = "@uniswap-v3-core"
+version = "1.0.2-solc-0.8-simulate"
+url = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v3-core/1_0_2-solc-0_8-simulate_22-01-2024_13:19:54_v3-core.zip"
+checksum = "68949c67a4f22044e4c8dc716362b6d79b07e8990e720bec9b116f54b233ef57"
+integrity = "697a089ffe197580b6cfe07f0c4dd8a35da0836fd1d9e522f73efda4b7314e01"
+
+[[dependencies]]
+name = "@uniswap-v3-periphery"
+version = "1.4.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v3-periphery/1_4_4_22-01-2024_13:20:51_v3-periphery.zip"
+checksum = "f1ce151585a084bb3ec6fb9cbce4520924d41398c3ce8979169de6f7f70d6a81"
+integrity = "e101a06117b3274cd21a3032fa9a55446e842dc0e0e1b0b25008e094a446c453"
+
+[[dependencies]]
 name = "forge-std"
 version = "1.9.5"
 url = "https://soldeer-revisions.s3.amazonaws.com/forge-std/1_9_5_21-12-2024_15:04:05_forge-std-1.9.zip"
@@ -15,5 +29,5 @@ integrity = "4753ffdfa0dde40878372b6a4d8e8fd1648b190b33996896c8b92f6f1680850f"
 [[dependencies]]
 name = "mangrove-core"
 version = "2.1.0"
-git = "git@github.com:mangrovedao/mangrove-core.git"
+git = "https://github.com/mangrovedao/mangrove-core.git"
 rev = "6fa9a5716753e577f127d1b1511304add0b386eb"
