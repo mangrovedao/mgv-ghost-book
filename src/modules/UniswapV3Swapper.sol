@@ -54,6 +54,9 @@ contract UniswapV3Swapper is IExternalSwapModule {
     int24 mgvTick = int24(Tick.unwrap(maxTick));
     int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, pool, mgvTick);
 
+    // Validate price limit is within bounds
+    uint160 sqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(uniswapTick);
+
     // Perform swap with price limit
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
       tokenIn: olKey.inbound_tkn,
@@ -63,7 +66,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
       deadline: block.timestamp,
       amountIn: amountToSell,
       amountOutMinimum: 0,
-      sqrtPriceLimitX96: TickMath.getSqrtRatioAtTick(uniswapTick)
+      sqrtPriceLimitX96: sqrtPriceLimitX96
     });
 
     getRouterForUniswapV3Pool(pool).exactInputSingle(params);
@@ -82,6 +85,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
   {
     // Compare addresses to determine token ordering without storage reads
     // If inbound token has lower address, it's token0 in Uniswap
-    return inboundToken < outboundToken ? -mgvTick : mgvTick;
+    return inboundToken < outboundToken ? mgvTick : -mgvTick;
   }
 }

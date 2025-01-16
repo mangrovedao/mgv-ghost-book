@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+
 import {BaseTest, console} from "../../base/BaseTest.t.sol";
 import {UniswapV3SwapperWrapper, UniswapV3Swapper} from "../../helpers/mock/UniswapV3SwapperWrapper.sol";
 import {IUniswapV3Factory} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -34,8 +35,9 @@ contract UniswapV3SwapperTest is BaseTest {
     swapper.setRouterForFactory(factory, router);
   }
 
-  function test_UniswapV3Swapper_swap_external() public {
-    uint256 amountToSell = 0.01 ether;
+  function test_UniswapV3Swapper_swap_external_limit_price(uint256 mgvTickDepeg) public {
+    mgvTickDepeg = bound(mgvTickDepeg, 0, 30);
+    uint256 amountToSell = 100 ether;
     address factory = UNISWAP_V3_FACTORY_ARBITRUM;
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
 
@@ -50,30 +52,18 @@ contract UniswapV3SwapperTest is BaseTest {
     });
     address pool = IUniswapV3Factory(factory).getPool(address(WETH), address(USDC), 500);
 
-    uint32 secondsAgo = 15;
+    (, int24 spotTick,,,,,) = IUniswapV3Pool(pool).slot0();
 
-    // Code copied from OracleLibrary.sol, consult()
-    uint32[] memory secondsAgos = new uint32[](2);
-    secondsAgos[0] = secondsAgo;
-    secondsAgos[1] = 0;
+    Tick maxTick = Tick.wrap(int256(spotTick - int24(uint24(mgvTickDepeg)))); // negative change since its not zero for one
 
-    // int56 since tick * time = int24 * uint32
-    // 56 = 24 + 32
-    (int56[] memory tickCumulatives,) = IUniswapV3Pool(pool).observe(secondsAgos);
-
-    int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
-
-    // int56 / uint32 = int24
-    int24 tick = int24(int256(tickCumulativesDelta) / int256(int32(secondsAgo)));
-    // Always round to negative infinity
-
-    if (tickCumulativesDelta < 0 && (int256(tickCumulativesDelta) % int256(int32(secondsAgo)) != 0)) {
-      tick--;
-    }
-
-    Tick maxTick = Tick.wrap(int256(tick + 1));
-    console.log("tick : ", int256(tick));
     swapper.externalSwap(key, amountToSell, maxTick, pool, "");
-    assertNotEq(WETH.balanceOf(address(swapper)), 0); // didn't swap it all because it reached limit price
+    uint256 tokenInBalanceAfter = WETH.balanceOf(address(swapper));
+    uint256 tokenOutBalanceAfter = USDC.balanceOf(address(swapper));
+    assertNotEq(tokenOutBalanceAfter, 0);
+    if (mgvTickDepeg <= 15) {
+      assertNotEq(tokenInBalanceAfter, 0); // didn't swap it all because it reached limit price
+    } else {
+      assertEq(tokenInBalanceAfter, 0); // it was able to swap it all before reaching Mangrove spot price
+    }
   }
 }
