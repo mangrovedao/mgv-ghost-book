@@ -57,9 +57,12 @@ contract UniswapV3SwapperTest is BaseTest {
     Tick maxTick = Tick.wrap(int256(spotTick - int24(uint24(mgvTickDepeg)))); // negative change since its not zero for one
 
     swapper.externalSwap(key, amountToSell, maxTick, pool, "");
+
     uint256 tokenInBalanceAfter = WETH.balanceOf(address(swapper));
     uint256 tokenOutBalanceAfter = USDC.balanceOf(address(swapper));
+
     assertNotEq(tokenOutBalanceAfter, 0);
+
     if (mgvTickDepeg <= 15) {
       assertNotEq(tokenInBalanceAfter, 0); // didn't swap it all because it reached limit price
     } else {
