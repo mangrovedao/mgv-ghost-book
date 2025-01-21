@@ -66,6 +66,10 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     IERC20(token).safeTransfer(to, amount);
   }
 
+  function whitelistModule(address _module) external onlyOwner {
+    whitelistedModules[IExternalSwapModule(_module)] = true;
+  }
+
   /// @notice Determines the maximum tick price for external swap based on Mangrove's best offer
   /// @dev If no offers exist on Mangrove, uses the provided maxTick. Otherwise uses the lower of maxTick and best offer's tick
   /// @param olKey The offer list key
