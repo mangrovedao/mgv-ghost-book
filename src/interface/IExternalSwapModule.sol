@@ -9,16 +9,13 @@ import {OLKey} from "@mgv/src/core/MgvLib.sol";
 interface IExternalSwapModule {
   /// @notice Executes a swap through an external liquidity pool
   /// @param olKey The offer list key containing outbound_tkn, inbound_tkn and tickSpacing
-  /// @param amountToSell The amount of input tokens to sell
-  /// @param maxTick The maximum price (as a tick) willing to pay for the swap
-  /// @param pool The address of the external liquidity pool to use
+  /// @param amountToSell The amount of input tokens to sell. The module has already received this amount of inbound tokens before the call
+  /// @param maxTick The maximum price (as a tick) willing to pay for the swap. The ratio of used inbound tokens to received outbound tokens must result in a tick less than or equal to maxTick
   /// @param data Additional data required for the swap - could be routing paths, proofs for RFQ order matching, or any other protocol-specific data
-  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, address pool, bytes memory data)
+  /// @dev At the end of this call, the caller expects:
+  /// @dev - Any unused inbound tokens to be returned
+  /// @dev - All outbound tokens from the swap to be transferred
+  /// @dev - The effective swap price (used inbound / received outbound) to be within maxTick, otherwise it will revert
+  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data)
     external;
-
-  /// @notice Gets the address that needs token approval for a given pool
-  /// @param pool The address of the external liquidity pool
-  /// @return The address that needs to be approved to spend tokens
-  /// @dev For uniswap v3 pools, it could be the router address
-  function spenderFor(address pool) external view returns (address);
 }
