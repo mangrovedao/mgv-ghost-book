@@ -8,6 +8,7 @@ import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Po
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
+import "forge-std/src/Test.sol";
 
 contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
   address ghostBook = makeAddr("mgv-ghostbook");
@@ -26,7 +27,7 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
 
     deal(address(WETH), address(swapper), amountToSell);
-    OLKey memory key = OLKey({
+    OLKey memory ol = OLKey({
       outbound_tkn: address(USDC),
       inbound_tkn: address(WETH),
       tickSpacing: 0 // irrelevant for the test
@@ -35,12 +36,13 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
 
     (, int24 spotTick,,,,,) = IUniswapV3Pool(pool).slot0();
 
-    Tick maxTick = Tick.wrap(int256(spotTick - int24(uint24(mgvTickDepeg)))); // negative change since its not zero for one
+    Tick maxTick =
+      Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - int24(uint24(mgvTickDepeg))))); // negative change since its not zero for one
 
     uint256 tokenInBalanceBefore = WETH.balanceOf(address(ghostBook));
     uint256 tokenOutBalanceBefore = USDC.balanceOf(address(ghostBook));
 
-    swapper.externalSwap(key, amountToSell, maxTick, abi.encode(router, uint24(500)));
+    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(router, uint24(500)));
 
     uint256 tokenInBalanceAfter = WETH.balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));

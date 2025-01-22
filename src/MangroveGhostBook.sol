@@ -160,6 +160,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     ModuleData calldata moduleData
   ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
     // Try external swap first, continue if it fails
+
     try MangroveGhostBook(address(this)).externalSwap(olKey, amountToSell, maxTick, moduleData, taker) returns (
       uint256 gave, uint256 got
     ) {
@@ -170,11 +171,12 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
       IERC20(olKey.inbound_tkn).safeTransferFrom(taker, address(this), amountToSell);
     }
 
+    IERC20(olKey.inbound_tkn).forceApprove(address(moduleData.module), 0);
+
     // If external swap didn't use full amount, try Mangrove
     if (takerGave < amountToSell) {
       uint256 takerGotFromMgv;
       uint256 takerGaveToMgv;
-
       // Force approval to MGV
       IERC20(olKey.inbound_tkn).forceApprove(address(MGV), amountToSell - takerGave);
 

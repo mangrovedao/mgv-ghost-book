@@ -54,18 +54,18 @@ contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
     });
 
     (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-    Tick maxTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick)));
-
+    Tick maxTick = Tick.wrap(int256(spotTick));
+    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick)));
     // Make market
     setupMarket(ol);
-    users.maker1.newOfferByTick(maxTick, amountToSell / 2, 100);
-    maxTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick + 2)));
-    users.maker2.newOfferByTick(maxTick, amountToSell / 2, 100);
+    users.maker1.newOfferByTick(mgvTick, 1e6, 2 ** 16);
+    mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick + 1)));
+    users.maker2.newOfferByTick(mgvTick, 1e6, 2 ** 16);
 
     vm.startPrank(users.taker1);
     // Create order by tick consuming both the orderbok and external swapper
     (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) =
-      ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
+      ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
     console.log("takerGot :", takerGot);
     console.log("takerGave:", takerGave);
     console.log("bounty:", bounty);

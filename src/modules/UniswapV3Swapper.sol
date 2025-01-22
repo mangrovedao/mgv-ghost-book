@@ -36,6 +36,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
     external
     onlyGhostBook
   {
+    // Decode needed data for the swap
     (address router, uint24 fee) = abi.decode(data, (address, uint24));
 
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
@@ -48,6 +49,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
 
     // Store initial balances to compare after swap
     uint256 gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - amountToSell;
+
     uint256 got = IERC20(olKey.outbound_tkn).balanceOf(address(this));
 
     // Perform swap with price limit
@@ -63,7 +65,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
     });
 
     ISwapRouter(router).exactInputSingle(params);
-
     // Calculate actual amounts from balance differences
     gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - gave;
     got = IERC20(olKey.outbound_tkn).balanceOf(address(this)) - got;
