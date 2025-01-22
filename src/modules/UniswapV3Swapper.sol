@@ -8,60 +8,53 @@ import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Po
 import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
+import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title UniswapV3Swapper - A generalized Uniswap V3 integration to perform limit order swaps in any Uniswap V3 implementation.
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
 contract UniswapV3Swapper is IExternalSwapModule {
-  /// @dev Storage slot for factory to router mapping
-  /// Computed as keccak256("UniswapV3Swapper::FactoryRouters")
-  bytes32 private constant ROUTERS_POSITION = 0xa2f306976a35d0b6463fdbc96489b3560c2c3d750c9f0df8e8a72070efd982e4;
+  using SafeERC20 for IERC20;
 
   error RouterAlreadySet();
   error Unauthorized();
 
-  /// @dev Returns the routers mapping storage
-  /// @return routers The mapping from factory addresses to router addresses
-  function getRoutersMapping() internal pure returns (mapping(address => address) storage routers) {
-    assembly {
-      routers.slot := ROUTERS_POSITION
+  address public ghostBook;
+
+  constructor(address _ghostBook) {
+    ghostBook = _ghostBook;
+  }
+
+  modifier onlyGhostBook() {
+    if (msg.sender != ghostBook) {
+      revert Unauthorized();
     }
-  }
-
-  /// @notice Sets the router for a specific factory
-  /// @dev Only callable by the owner of the main contract
-  /// @param factory Address of the Uniswap V3 factory
-  /// @param router Address of the router to use for this factory
-  function setRouterForFactory(address factory, address router) external {
-    // TODO: Implement proper admin check considering delegatecall context
-    mapping(address => address) storage routers = getRoutersMapping();
-    if (routers[factory] != address(0)) revert RouterAlreadySet();
-    routers[factory] = router;
-  }
-
-  /// @notice Retrieves the swap router associated with a specific pool
-  /// @param pool Address of the Uniswap V3 pool
-  /// @return router The ISwapRouter interface of the associated router
-  function getRouterForUniswapV3Pool(address pool) public view returns (ISwapRouter router) {
-    address factory = IUniswapV3Pool(pool).factory();
-    router = ISwapRouter(getRoutersMapping()[factory]);
+    _;
   }
 
   /// @inheritdoc IExternalSwapModule
-  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, address pool, bytes memory data) public {
-    // Ignore compiler warnings
-    data;
+  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data)
+    external
+    onlyGhostBook
+  {
+    (address router, uint24 fee) = abi.decode(data, (address, uint24));
+
+    IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
 
     int24 mgvTick = int24(Tick.unwrap(maxTick));
-    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, pool, mgvTick);
+    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
 
     // Validate price limit is within bounds
     uint160 sqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(uniswapTick);
+
+    // Store initial balances to compare after swap
+    uint256 gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - amountToSell;
+    uint256 got = IERC20(olKey.outbound_tkn).balanceOf(address(this));
 
     // Perform swap with price limit
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
       tokenIn: olKey.inbound_tkn,
       tokenOut: olKey.outbound_tkn,
-      fee: IUniswapV3Pool(pool).fee(),
+      fee: fee,
       recipient: address(this),
       deadline: block.timestamp,
       amountIn: amountToSell,
@@ -69,12 +62,16 @@ contract UniswapV3Swapper is IExternalSwapModule {
       sqrtPriceLimitX96: sqrtPriceLimitX96
     });
 
-    getRouterForUniswapV3Pool(pool).exactInputSingle(params);
-  }
+    ISwapRouter(router).exactInputSingle(params);
 
-  /// @inheritdoc IExternalSwapModule
-  function spenderFor(address pool) public view returns (address) {
-    return address(getRouterForUniswapV3Pool(pool));
+    // Calculate actual amounts from balance differences
+    gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - gave;
+    got = IERC20(olKey.outbound_tkn).balanceOf(address(this)) - got;
+
+    // Transfer tokens back
+    IERC20(olKey.inbound_tkn).forceApprove(address(router), 0);
+    IERC20(olKey.inbound_tkn).safeTransfer(msg.sender, gave);
+    IERC20(olKey.outbound_tkn).safeTransfer(msg.sender, got);
   }
 
   /// @dev Helper function to convert from Mangrove tick to Uniswap tick as prices are represented differently

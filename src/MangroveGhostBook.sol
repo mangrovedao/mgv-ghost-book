@@ -92,10 +92,13 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   /// @param moduleData External swap module information
   /// @return gave Amount of input tokens spent
   /// @return got Amount of output tokens received
-  function _executeExternalSwapModule(OLKey memory olKey, uint256 amountToSell, Tick maxTick, ModuleData calldata moduleData, address taker)
-    internal
-    returns (uint256 gave, uint256 got)
-  {
+  function _executeExternalSwapModule(
+    OLKey memory olKey,
+    uint256 amountToSell,
+    Tick maxTick,
+    ModuleData calldata moduleData,
+    address taker
+  ) internal returns (uint256 gave, uint256 got) {
     // Store initial balances to compare after swap
     gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) + amountToSell;
     got = IERC20(olKey.outbound_tkn).balanceOf(address(this));
@@ -124,10 +127,13 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   /// @param moduleData External swap module information
   /// @return gave Amount spent
   /// @return got Amount received
-  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, ModuleData calldata moduleData, address taker)
-    public
-    returns (uint256 gave, uint256 got)
-  {
+  function externalSwap(
+    OLKey memory olKey,
+    uint256 amountToSell,
+    Tick maxTick,
+    ModuleData calldata moduleData,
+    address taker
+  ) public returns (uint256 gave, uint256 got) {
     if (msg.sender != address(this)) revert GhostBookErrors.OnlyThisContractCanCallThisFunction();
     if (!whitelistedModules[moduleData.module]) revert GhostBookErrors.ModuleNotWhitelisted();
 
@@ -146,11 +152,13 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   /// @return takerGave Total amount spent
   /// @return bounty Bounty from failed offers
   /// @return feePaid Fees paid to Mangrove
-  function generalMarketOrder(OLKey memory olKey, Tick maxTick, uint256 amountToSell, address taker, ModuleData calldata moduleData)
-    internal
-    nonReentrant
-    returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid)
-  {
+  function generalMarketOrder(
+    OLKey memory olKey,
+    Tick maxTick,
+    uint256 amountToSell,
+    address taker,
+    ModuleData calldata moduleData
+  ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
     // Try external swap first, continue if it fails
     try MangroveGhostBook(address(this)).externalSwap(olKey, amountToSell, maxTick, moduleData, taker) returns (
       uint256 gave, uint256 got
@@ -167,9 +175,13 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
       uint256 takerGotFromMgv;
       uint256 takerGaveToMgv;
 
+      // Force approval to MGV
+      IERC20(olKey.inbound_tkn).forceApprove(address(MGV), amountToSell - takerGave);
+
       (takerGotFromMgv, takerGaveToMgv, bounty, feePaid) =
         MGV.marketOrderByTick(olKey, maxTick, amountToSell - takerGave, false);
 
+      IERC20(olKey.inbound_tkn).forceApprove(address(MGV), 0);
       takerGot += takerGotFromMgv;
       takerGave += takerGaveToMgv;
     }

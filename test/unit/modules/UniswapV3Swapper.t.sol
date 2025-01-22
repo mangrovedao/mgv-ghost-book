@@ -6,28 +6,17 @@ import {UniswapV3SwapperWrapper, UniswapV3Swapper} from "../../helpers/mock/Unis
 import {IUniswapV3Factory} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
+import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
 
 contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
+  address ghostBook = makeAddr("mgv-ghostbook");
+
   function setUp() public override {
     super.setUp();
-    deployUniswapV3Swapper();
-  }
-
-  function test_UniswapV3Swapper_setRouterForFactory() public {
-    address factory = UNISWAP_V3_FACTORY_ARBITRUM;
-    address router = UNISWAP_V3_ROUTER_ARBITRUM;
-    address pool = IUniswapV3Factory(factory).getPool(address(WETH), address(USDC), 500);
-    swapper.setRouterForFactory(factory, router);
-    assertEq(swapper.spenderFor(pool), router);
-  }
-
-  function test_UniswapV3Swapper_revert_factory_already_set() public {
-    address factory = UNISWAP_V3_FACTORY_ARBITRUM;
-    address router = UNISWAP_V3_ROUTER_ARBITRUM;
-    swapper.setRouterForFactory(factory, router);
-    vm.expectRevert(UniswapV3Swapper.RouterAlreadySet.selector);
-    swapper.setRouterForFactory(factory, router);
+    deployUniswapV3Swapper(ghostBook);
+    deal(address(WETH), ghostBook, 10_000 ether);
+    vm.startPrank(ghostBook);
   }
 
   function testFuzz_UniswapV3Swapper_swap_external_limit_price(uint256 mgvTickDepeg) public {
@@ -36,10 +25,7 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
     address factory = UNISWAP_V3_FACTORY_ARBITRUM;
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
 
-    swapper.setRouterForFactory(factory, router);
-
     deal(address(WETH), address(swapper), amountToSell);
-    swapper.approve(WETH, UNISWAP_V3_ROUTER_ARBITRUM, amountToSell);
     OLKey memory key = OLKey({
       outbound_tkn: address(USDC),
       inbound_tkn: address(WETH),
@@ -51,17 +37,20 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
 
     Tick maxTick = Tick.wrap(int256(spotTick - int24(uint24(mgvTickDepeg)))); // negative change since its not zero for one
 
-    swapper.externalSwap(key, amountToSell, maxTick, pool, "");
+    uint256 tokenInBalanceBefore = WETH.balanceOf(address(ghostBook));
+    uint256 tokenOutBalanceBefore = USDC.balanceOf(address(ghostBook));
 
-    uint256 tokenInBalanceAfter = WETH.balanceOf(address(swapper));
-    uint256 tokenOutBalanceAfter = USDC.balanceOf(address(swapper));
+    swapper.externalSwap(key, amountToSell, maxTick, abi.encode(router, uint24(500)));
 
-    assertNotEq(tokenOutBalanceAfter, 0);
+    uint256 tokenInBalanceAfter = WETH.balanceOf(address(ghostBook));
+    uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));
+
+    assertNotEq(tokenOutBalanceAfter - tokenOutBalanceBefore, 0);
 
     if (mgvTickDepeg <= 15) {
-      assertNotEq(tokenInBalanceAfter, 0); // didn't swap it all because it reached limit price
+      assertNotEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // didn't swap it all because it reached limit price
     } else {
-      assertEq(tokenInBalanceAfter, 0); // it was able to swap it all before reaching Mangrove spot price
+      assertEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // it was able to swap it all before reaching Mangrove spot price
     }
   }
 }

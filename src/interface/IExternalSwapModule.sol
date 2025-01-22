@@ -16,6 +16,5 @@ interface IExternalSwapModule {
   /// @dev - Any unused inbound tokens to be returned
   /// @dev - All outbound tokens from the swap to be transferred
   /// @dev - The effective swap price (used inbound / received outbound) to be within maxTick, otherwise it will revert
-  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data)
-    external;
+  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data) external;
 }

@@ -18,8 +18,8 @@ abstract contract BaseUniswapV3SwapperTest is BaseTest {
     return inboundToken < outboundToken ? uniswapTick : -uniswapTick;
   }
 
-  function deployUniswapV3Swapper() internal returns (UniswapV3SwapperWrapper) {
-    swapper = new UniswapV3SwapperWrapper();
+  function deployUniswapV3Swapper(address ghostBook) internal returns (UniswapV3SwapperWrapper) {
+    swapper = new UniswapV3SwapperWrapper(ghostBook);
     return swapper;
   }
 }
