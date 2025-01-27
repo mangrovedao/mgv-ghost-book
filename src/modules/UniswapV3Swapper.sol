@@ -9,6 +9,7 @@ import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/src/Test.sol";
 
 /// @title UniswapV3Swapper - A generalized Uniswap V3 integration to perform limit order swaps in any Uniswap V3 implementation.
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
@@ -42,7 +43,9 @@ contract UniswapV3Swapper is IExternalSwapModule {
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
 
     int24 mgvTick = int24(Tick.unwrap(maxTick));
+    console.log("mgvTick : ", mgvTick);
     int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
+    console.log("uni Tick : ", uniswapTick);
 
     // Validate price limit is within bounds
     uint160 sqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(uniswapTick);
@@ -83,6 +86,6 @@ contract UniswapV3Swapper is IExternalSwapModule {
   {
     // Compare addresses to determine token ordering without storage reads
     // If inbound token has lower address, it's token0 in Uniswap
-    return inboundToken < outboundToken ? mgvTick : -mgvTick;
+    return inboundToken < outboundToken ? -mgvTick : mgvTick;
   }
 }

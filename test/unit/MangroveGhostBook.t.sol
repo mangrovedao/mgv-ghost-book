@@ -58,9 +58,9 @@ contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
     Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick)));
     // Make market
     setupMarket(ol);
-    users.maker1.newOfferByTick(mgvTick, 1e6, 2 ** 16);
-    mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick + 1)));
-    users.maker2.newOfferByTick(mgvTick, 1e6, 2 ** 16);
+    users.maker1.newOfferByTick(mgvTick, 100_000_000e6, 2 ** 18);
+    Tick mgvTick2 = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 1)));
+    users.maker2.newOfferByTick(mgvTick2, 100_000_000e6, 2 ** 18);
 
     vm.startPrank(users.taker1);
     // Create order by tick consuming both the orderbok and external swapper
