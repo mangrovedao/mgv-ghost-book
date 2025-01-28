@@ -9,7 +9,7 @@ import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/src/Test.sol";
+import "@openzeppelin-contracts/utils/math/Math.sol";
 
 /// @title UniswapV3Swapper - A generalized Uniswap V3 integration to perform limit order swaps in any Uniswap V3 implementation.
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
@@ -20,6 +20,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
   error Unauthorized();
 
   address public ghostBook;
+  int256 constant FEE_PRECISION = 1e6;
 
   constructor(address _ghostBook) {
     ghostBook = _ghostBook;
@@ -43,9 +44,8 @@ contract UniswapV3Swapper is IExternalSwapModule {
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
 
     int24 mgvTick = int24(Tick.unwrap(maxTick));
-    console.log("mgvTick : ", mgvTick);
     int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
-    console.log("uni Tick : ", uniswapTick);
+    uniswapTick = _adjustTickForFees(uniswapTick, fee);
 
     // Validate price limit is within bounds
     uint160 sqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(uniswapTick);
@@ -87,5 +87,13 @@ contract UniswapV3Swapper is IExternalSwapModule {
     // Compare addresses to determine token ordering without storage reads
     // If inbound token has lower address, it's token0 in Uniswap
     return inboundToken < outboundToken ? -mgvTick : mgvTick;
+  }
+
+  function _adjustTickForFees(int24 tick, uint24 fee) internal pure returns (int24) {
+    // For fee of 500 (0.05%), multiplier is 0.995
+    // We want a lower tick that after fees matches our target
+    int256 multiplier = int256(uint256(FEE_PRECISION) - uint256(fee));
+    // Multiply tick by (1 - fee) to get a lower tick
+    return int24((int256(tick) * multiplier) / FEE_PRECISION);
   }
 }

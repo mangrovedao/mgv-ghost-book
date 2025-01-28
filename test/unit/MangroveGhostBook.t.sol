@@ -46,7 +46,7 @@ contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
     address factory = UNISWAP_V3_FACTORY_ARBITRUM;
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
 
-    uint256 amountToSell = 5 ether;
+    uint256 amountToSell = 50 ether;
     address poolAddress = IUniswapV3Factory(factory).getPool(address(WETH), address(USDC), 500);
     ModuleData memory data = ModuleData({
       module: IExternalSwapModule(address(swapper)),
@@ -55,20 +55,17 @@ contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
 
     (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
     Tick maxTick = Tick.wrap(int256(spotTick));
-    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick)));
+    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+
     // Make market
     setupMarket(ol);
-    users.maker1.newOfferByTick(mgvTick, 100_000_000e6, 2 ** 18);
-    Tick mgvTick2 = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 1)));
-    users.maker2.newOfferByTick(mgvTick2, 100_000_000e6, 2 ** 18);
+    users.maker1.newOfferByTick(mgvTick, 5_000e6, 2 ** 18);
+    Tick mgvTick2 = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+    users.maker2.newOfferByTick(mgvTick, 5_000e6, 2 ** 18);
 
     vm.startPrank(users.taker1);
     // Create order by tick consuming both the orderbok and external swapper
     (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) =
-      ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
-    console.log("takerGot :", takerGot);
-    console.log("takerGave:", takerGave);
-    console.log("bounty:", bounty);
-    console.log("feePaid:", feePaid);
+      ghostBook.marketOrderByTick(ol, mgvTick2, amountToSell, data);
   }
 }

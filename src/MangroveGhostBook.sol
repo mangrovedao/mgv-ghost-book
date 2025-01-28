@@ -9,7 +9,6 @@ import {IExternalSwapModule} from "./interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "./libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin-contracts/access/Ownable.sol";
-import "forge-std/src/console.sol";
 
 /// @title ModuleData - Data structure for external swap module information
 /// @notice Holds the necessary data to interact with an external swap module
@@ -115,8 +114,6 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
 
     // Verify price is within limits
     Tick inferredTick = TickLib.tickFromVolumes(gave, got);
-    console.log("inferred tick: ", Tick.unwrap(inferredTick));
-    console.log("max tick: ", Tick.unwrap(maxTick));
     if (Tick.unwrap(inferredTick) > Tick.unwrap(maxTick)) {
       revert GhostBookErrors.InferredTickHigherThanMaxTick(inferredTick, maxTick);
     }
