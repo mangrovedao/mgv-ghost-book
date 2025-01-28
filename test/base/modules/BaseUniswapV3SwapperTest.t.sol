@@ -15,11 +15,12 @@ abstract contract BaseUniswapV3SwapperTest is BaseTest {
   {
     // Compare addresses to determine token ordering without storage reads
     // If inbound token has lower address, it's token0 in Uniswap
-    return inboundToken < outboundToken ? uniswapTick : -uniswapTick;
+    if (uniswapTick < 0) return -(uniswapTick);
+    return uniswapTick;
   }
 
-  function deployUniswapV3Swapper() internal returns (UniswapV3SwapperWrapper) {
-    swapper = new UniswapV3SwapperWrapper();
+  function deployUniswapV3Swapper(address ghostBook) internal returns (UniswapV3SwapperWrapper) {
+    swapper = new UniswapV3SwapperWrapper(ghostBook);
     return swapper;
   }
 }
