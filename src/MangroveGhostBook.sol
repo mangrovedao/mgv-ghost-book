@@ -79,7 +79,8 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     if (bestOfferId == 0) {
       externalMaxTick = maxTick;
     } else {
-      Tick offerTick = MGV.offers(olKey, bestOfferId).tick();
+      uint256 fee = MGV.local(olKey).fee();
+      Tick offerTick = Tick.wrap(Tick.unwrap(MGV.offers(olKey, bestOfferId).tick()) + fee);
       externalMaxTick = Tick.unwrap(offerTick) < Tick.unwrap(maxTick) ? offerTick : maxTick;
     }
   }
