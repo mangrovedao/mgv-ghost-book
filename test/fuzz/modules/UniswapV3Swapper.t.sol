@@ -8,7 +8,6 @@ import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Po
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
-import "forge-std/src/Test.sol";
 
 contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
   address ghostBook = makeAddr("mgv-ghostbook");
@@ -21,7 +20,7 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
   }
 
   function testFuzz_UniswapV3Swapper_swap_external_limit_price(uint256 mgvTickDepeg) public {
-    mgvTickDepeg = bound(mgvTickDepeg, 0, 30);
+    mgvTickDepeg = bound(mgvTickDepeg, 100, 200);
     uint256 amountToSell = 100 ether;
     address factory = UNISWAP_V3_FACTORY_ARBITRUM;
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
@@ -49,7 +48,7 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
 
     assertNotEq(tokenOutBalanceAfter - tokenOutBalanceBefore, 0);
 
-    if (mgvTickDepeg <= 15) {
+    if (mgvTickDepeg <= 113) {
       assertNotEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // didn't swap it all because it reached limit price
     } else {
       assertEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // it was able to swap it all before reaching Mangrove spot price

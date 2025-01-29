@@ -161,9 +161,8 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
     // Try external swap first, continue if it fails
 
-    try MangroveGhostBook(address(this)).externalSwap(olKey, amountToSell, maxTick, moduleData, taker) returns (
-      uint256 gave, uint256 got
-    ) {
+    try MangroveGhostBook(payable(address(this))).externalSwap(olKey, amountToSell, maxTick, moduleData, taker)
+    returns (uint256 gave, uint256 got) {
       takerGot = got;
       takerGave = gave;
     } catch {
@@ -195,4 +194,6 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
 
     if (bounty > 0) payable(taker).transfer(bounty);
   }
+
+  receive() external payable {}
 }
