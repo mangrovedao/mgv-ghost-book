@@ -7,7 +7,7 @@ import {IUniswapV3Factory} from "@uniswap-v3-core/contracts/interfaces/IUniswapV
 import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import {Tick} from "@mgv/lib/core/TickLib.sol";
+import {Tick, TickLib} from "@mgv/lib/core/TickLib.sol";
 
 contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
   address ghostBook = makeAddr("mgv-ghostbook");
@@ -15,12 +15,39 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
   function setUp() public override {
     super.setUp();
     deployUniswapV3Swapper(ghostBook);
-    deal(address(WETH), ghostBook, 10_000 ether);
-    vm.startPrank(ghostBook);
+    // deal(address(WETH), ghostBook, 10_000 ether);
   }
 
-  function testFuzz_UniswapV3Swapper_swap_external_limit_price(uint256 mgvTickDepeg) public {
-    mgvTickDepeg = bound(mgvTickDepeg, 100, 200);
+  function extractCalldata(bytes memory calldataWithSelector) internal pure returns (bytes memory) {
+    bytes memory calldataWithoutSelector;
+
+    require(calldataWithSelector.length >= 4);
+
+    assembly {
+      let totalLength := mload(calldataWithSelector)
+      let targetLength := sub(totalLength, 4)
+      calldataWithoutSelector := mload(0x40)
+
+      // Set the length of callDataWithoutSelector (initial length - 4)
+      mstore(calldataWithoutSelector, targetLength)
+
+      // Mark the memory space taken for callDataWithoutSelector as allocated
+      mstore(0x40, add(calldataWithoutSelector, add(0x20, targetLength)))
+
+      // Process first 32 bytes (we only take the last 28 bytes)
+      mstore(add(calldataWithoutSelector, 0x20), shl(0x20, mload(add(calldataWithSelector, 0x20))))
+
+      // Process all other data by chunks of 32 bytes
+      for { let i := 0x1C } lt(i, targetLength) { i := add(i, 0x20) } {
+        mstore(add(add(calldataWithoutSelector, 0x20), i), mload(add(add(calldataWithSelector, 0x20), add(i, 0x04))))
+      }
+    }
+
+    return calldataWithoutSelector;
+  }
+
+  function testFuzz_UniswapV3Swapper_swap_external_limit_price(uint24 mgvTickDepeg) public {
+    vm.assume(mgvTickDepeg < 10_000);
     uint256 amountToSell = 100 ether;
     address factory = UNISWAP_V3_FACTORY_ARBITRUM;
     address router = UNISWAP_V3_ROUTER_ARBITRUM;
@@ -38,20 +65,31 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
     Tick maxTick =
       Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - int24(uint24(mgvTickDepeg))))); // negative change since its not zero for one
 
-    uint256 tokenInBalanceBefore = WETH.balanceOf(address(ghostBook));
+    console.log("Spot tick:", spotTick);
+    console.log("Max tick:", Tick.unwrap(maxTick));
+
+    uint256 tokenInBalanceBefore = WETH.balanceOf(address(swapper));
     uint256 tokenOutBalanceBefore = USDC.balanceOf(address(ghostBook));
 
-    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(router, uint24(500)));
+    vm.prank(ghostBook);
+    try swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(router, uint24(500))) {}
+    catch (bytes memory _res) {
+      string memory str = abi.decode(extractCalldata(_res), (string));
+      if (mgvTickDepeg < 100) {
+        assertEq(str, "SPL");
+        return;
+      }
+    }
 
     uint256 tokenInBalanceAfter = WETH.balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));
 
     assertNotEq(tokenOutBalanceAfter - tokenOutBalanceBefore, 0);
+    assertNotEq(tokenInBalanceBefore - tokenInBalanceAfter, 0);
 
-    if (mgvTickDepeg <= 113) {
-      assertNotEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // didn't swap it all because it reached limit price
-    } else {
-      assertEq(tokenInBalanceAfter - tokenInBalanceBefore, 0); // it was able to swap it all before reaching Mangrove spot price
-    }
+    Tick tick =
+      TickLib.tickFromVolumes(tokenInBalanceBefore - tokenInBalanceAfter, tokenOutBalanceAfter - tokenOutBalanceBefore);
+
+    assertLt(Tick.unwrap(tick), Tick.unwrap(maxTick));
   }
 }
