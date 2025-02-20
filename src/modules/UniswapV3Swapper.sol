@@ -3,8 +3,7 @@ pragma solidity ^0.8.20;
 
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
-import {ISwapRouter} from "@uniswap-v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import {IUniswapV3Pool} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {ISwapRouterV2} from "../interface/vendors/ISwapRouterV2.sol";
 import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
@@ -56,18 +55,17 @@ contract UniswapV3Swapper is IExternalSwapModule {
     uint256 got = IERC20(olKey.outbound_tkn).balanceOf(address(this));
 
     // Perform swap with price limit
-    ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+    ISwapRouterV2.ExactInputSingleParams memory params = ISwapRouterV2.ExactInputSingleParams({
       tokenIn: olKey.inbound_tkn,
       tokenOut: olKey.outbound_tkn,
       fee: fee,
       recipient: address(this),
-      deadline: block.timestamp,
       amountIn: amountToSell,
       amountOutMinimum: 0,
       sqrtPriceLimitX96: sqrtPriceLimitX96
     });
 
-    ISwapRouter(router).exactInputSingle(params);
+    ISwapRouterV2(router).exactInputSingle(params);
     // Calculate actual amounts from balance differences
     gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - gave;
     got = IERC20(olKey.outbound_tkn).balanceOf(address(this)) - got;
