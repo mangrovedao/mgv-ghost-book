@@ -19,7 +19,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
   error RouterAlreadySet();
   error Unauthorized();
 
-  address public ghostBook;
+  address public immutable ghostBook;
   int256 constant FEE_PRECISION = 1e6;
 
   constructor(address _ghostBook) {

@@ -9,6 +9,7 @@ import {IExternalSwapModule} from "./interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "./libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin-contracts/access/Ownable.sol";
+import {GhostBookEvents} from "./libraries/GhostBookEvents.sol";
 
 /// @title ModuleData - Data structure for external swap module information
 /// @notice Holds the necessary data to interact with an external swap module
@@ -27,6 +28,14 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
 
   /// @notice The Mangrove contract instance
   IMangrove public immutable MGV;
+
+  /// @notice Emitted when a module is whitelisted for external swaps
+  /// @param module The module that was whitelisted
+  event ModuleWhitelisted(IExternalSwapModule module);
+
+  /// @notice Emitted when a module is blacklisted (removed from whitelist) for external swaps
+  /// @param module The module that was blacklisted
+  event ModuleBlacklisted(IExternalSwapModule module);
 
   /// @notice Mapping to track which external swap modules are whitelisted
   /// @dev Only whitelisted modules can be used for external swaps
@@ -61,11 +70,22 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   /// @param to Recipient address
   /// @param amount Amount to rescue
   function rescueFunds(address token, address to, uint256 amount) external onlyOwner {
-    IERC20(token).safeTransfer(to, amount);
+    if (token == address(0)) {  
+      (bool success, ) = payable(to).call{value: amount}("");
+      if (!success) revert GhostBookErrors.TransferFailed();
+    } else {
+      IERC20(token).safeTransfer(to, amount);
+    }
   }
 
   function whitelistModule(address _module) external onlyOwner {
     whitelistedModules[IExternalSwapModule(_module)] = true;
+    emit ModuleWhitelisted(IExternalSwapModule(_module));
+  }
+
+  function blacklistModule(address _module) external onlyOwner {
+    whitelistedModules[IExternalSwapModule(_module)] = false;
+    emit ModuleBlacklisted(IExternalSwapModule(_module));
   }
 
   /// @notice Determines the maximum tick price for external swap based on Mangrove's best offer
@@ -160,8 +180,10 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     address taker,
     ModuleData calldata moduleData
   ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
-    // Try external swap first, continue if it fails
+    
+    emit GhostBookEvents.OrderStarted(taker, olKey.hash());
 
+    // Try external swap first, continue if it fails
     try MangroveGhostBook(payable(address(this))).externalSwap(olKey, amountToSell, maxTick, moduleData, taker)
     returns (uint256 gave, uint256 got) {
       takerGot = got;
@@ -193,7 +215,12 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     if (inboundToReturn > 0) IERC20(olKey.inbound_tkn).safeTransfer(taker, inboundToReturn);
     if (takerGot > 0) IERC20(olKey.outbound_tkn).safeTransfer(taker, takerGot);
 
-    if (bounty > 0) payable(taker).transfer(bounty);
+    if (bounty > 0) {
+      (bool success, ) = payable(taker).call{value: bounty}("");
+      if (!success) revert GhostBookErrors.TransferFailed();
+    }
+
+    emit GhostBookEvents.OrderCompleted(taker, olKey.hash(), takerGot, takerGave, bounty, feePaid);
   }
 
   receive() external payable {}
