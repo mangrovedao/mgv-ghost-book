@@ -24,4 +24,7 @@ library GhostBookErrors {
 
   /// @notice Thrown when trying to use an external swap module that is not whitelisted
   error ModuleNotWhitelisted();
+
+  /// @notice Thrown when a transfer fails
+  error TransferFailed();
 }
