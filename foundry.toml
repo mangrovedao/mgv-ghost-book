@@ -12,10 +12,8 @@ optimizer_runs = 200
 [dependencies]
 forge-std = "1.9.5"
 "@openzeppelin-contracts" = "5.1.0"
-"@uniswap-v3-periphery" = "1.4.4"
-"@uniswap-v3-core" = "1.0.2-solc-0.8-simulate"
 mangrove-core = { version = "2.1.0", git = "https://github.com/mangrovedao/mangrove-core.git", rev = "6fa9a5716753e577f127d1b1511304add0b386eb" }
-
+"@uniswap-v3-core" = "1.0.2-solc-0.8-simulate"
 
 [soldeer]
 # whether soldeer manages remappings
