@@ -8,7 +8,10 @@ library GhostBookEvents {
   /// @notice Emitted when a market order starts execution
   /// @param taker The address of the account executing the market order
   /// @param olKeyHash Hash of the offer list key identifying the trading pair
-  event OrderStarted(address indexed taker, bytes32 indexed olKeyHash);
+  /// @param fillVolume Volume of tokens to fill
+  /// @param fillWants if true, the fillVolume is the amount of tokens the taker wants to buy
+  /// @dev if false, the fillVolume is the amount of tokens the taker wants to sell
+  event OrderStarted(address indexed taker, bytes32 indexed olKeyHash, uint256 fillVolume, bool fillWants);
 
   /// @notice Emitted when a market order completes execution
   /// @param taker The address of the account that executed the market order
@@ -17,5 +20,7 @@ library GhostBookEvents {
   /// @param gave Amount of inbound tokens spent by the taker
   /// @param fee Total fees paid to Mangrove
   /// @param bounty Total bounty received from failed offers
-  event OrderCompleted(address indexed taker, bytes32 indexed olKeyHash, uint got, uint gave, uint fee, uint bounty);
+  event OrderCompleted(
+    address indexed taker, bytes32 indexed olKeyHash, uint256 got, uint256 gave, uint256 fee, uint256 bounty
+  );
 }

@@ -70,8 +70,8 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
   /// @param to Recipient address
   /// @param amount Amount to rescue
   function rescueFunds(address token, address to, uint256 amount) external onlyOwner {
-    if (token == address(0)) {  
-      (bool success, ) = payable(to).call{value: amount}("");
+    if (token == address(0)) {
+      (bool success,) = payable(to).call{value: amount}("");
       if (!success) revert GhostBookErrors.TransferFailed();
     } else {
       IERC20(token).safeTransfer(to, amount);
@@ -180,8 +180,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     address taker,
     ModuleData calldata moduleData
   ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
-    
-    emit GhostBookEvents.OrderStarted(taker, olKey.hash());
+    emit GhostBookEvents.OrderStarted(taker, olKey.hash(), amountToSell, false);
 
     // Try external swap first, continue if it fails
     try MangroveGhostBook(payable(address(this))).externalSwap(olKey, amountToSell, maxTick, moduleData, taker)
@@ -216,7 +215,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     if (takerGot > 0) IERC20(olKey.outbound_tkn).safeTransfer(taker, takerGot);
 
     if (bounty > 0) {
-      (bool success, ) = payable(taker).call{value: bounty}("");
+      (bool success,) = payable(taker).call{value: bounty}("");
       if (!success) revert GhostBookErrors.TransferFailed();
     }
 
