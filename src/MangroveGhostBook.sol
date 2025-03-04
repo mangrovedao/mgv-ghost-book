@@ -180,7 +180,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     address taker,
     ModuleData calldata moduleData
   ) internal nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
-    emit GhostBookEvents.OrderStarted(taker, olKey.hash(), amountToSell, false);
+    emit GhostBookEvents.OrderStarted(taker, olKey.hash(), address(moduleData.module), maxTick, amountToSell, false);
 
     // Try external swap first, continue if it fails
     try MangroveGhostBook(payable(address(this))).externalSwap(olKey, amountToSell, maxTick, moduleData, taker)
