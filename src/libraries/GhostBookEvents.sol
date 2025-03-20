@@ -15,7 +15,9 @@ library GhostBookEvents {
   /// @param fillVolume Volume of tokens to fill
   /// @param fillWants if true, the fillVolume is the amount of tokens the taker wants to buy
   /// @dev if false, the fillVolume is the amount of tokens the taker wants to sell
-  event OrderStarted(address indexed taker, bytes32 indexed olKeyHash, address module, Tick maxTick, uint256 fillVolume, bool fillWants);
+  event OrderStarted(
+    address indexed taker, bytes32 indexed olKeyHash, address module, Tick maxTick, uint256 fillVolume, bool fillWants
+  );
 
   /// @notice Emitted when a market order completes execution
   /// @param taker The address of the account that executed the market order
