@@ -421,3 +421,9 @@ interface IAerodromeRouter {
     view
     returns (uint256 ratio);
 }
+
+interface IAerodromePoolFactory {
+  function getFee(address pool, bool _stable) external view returns (uint256);
+
+  function getPool(address tokenA, address tokenB, bool stable) external view returns (address);
+}

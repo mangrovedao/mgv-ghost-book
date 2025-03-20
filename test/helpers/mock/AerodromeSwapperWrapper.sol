@@ -13,14 +13,14 @@ contract AerodromeSwapperWrapper is AerodromeSwapper {
 
   constructor(address _ghostBook, address _router) AerodromeSwapper(_ghostBook, _router) {}
 
-  /// @notice Expose the internal function for testing
-  function calculateMinimumAmountOut(OLKey memory olKey, uint256 amountIn, Tick maxTick)
-    external
-    pure
-    returns (uint256)
-  {
-    return _calculateMinimumAmountOut(olKey, amountIn, maxTick);
-  }
+  // /// @notice Expose the internal function for testing
+  // function calculateMinimumAmountOut(OLKey memory olKey, uint256 amountIn, Tick maxTick)
+  //   external
+  //   pure
+  //   returns (uint256)
+  // {
+  //   return _calculateMinimumAmountOut(olKey, amountIn, maxTick);
+  // }
 
   /// @notice Allow the test contract to receive tokens
   function transferToken(address token, address to, uint256 amount) external {

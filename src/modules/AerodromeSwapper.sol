@@ -6,8 +6,8 @@ import {Tick, TickLib} from "@mgv/lib/core/TickLib.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAerodromeRouter} from "src/interface/vendors/IAerodrome.sol";
 import "@openzeppelin-contracts/utils/math/Math.sol";
-import {IAerodromeRouter} from "src/interface/vendors/IAerodromeRouter.sol";
 
 /// @title AerodromeSwapper - An Aerodrome integration to perform limit order swaps on Aerodrome pools
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
@@ -20,6 +20,8 @@ contract AerodromeSwapper is IExternalSwapModule {
 
   address public immutable ghostBook;
   address public immutable router;
+
+  uint256 public constant FEE_PRECISION = 10_000;
 
   constructor(address _ghostBook, address _router) {
     ghostBook = _ghostBook;
@@ -45,80 +47,118 @@ contract AerodromeSwapper is IExternalSwapModule {
       revert RouterNotSet();
     }
 
-    // Calculate minimum output based on maxTick
-    uint256 amountOutMin = _calculateMinimumAmountOut(olKey, amountToSell, maxTick);
-
-    // Store initial balances to track actual swap amounts
     address inToken = olKey.inbound_tkn;
     address outToken = olKey.outbound_tkn;
-    uint256 initialInbound = IERC20(inToken).balanceOf(address(this));
-    uint256 initialOutbound = IERC20(outToken).balanceOf(address(this));
-
-    // Approve router to spend tokens
-    IERC20(inToken).forceApprove(address(router), amountToSell);
 
     // Prepare route for Aerodrome swap
     IAerodromeRouter.Route[] memory routes = new IAerodromeRouter.Route[](1);
     routes[0] = IAerodromeRouter.Route({from: inToken, to: outToken, stable: stable, factory: factory});
 
-    // Perform swap with price limit
-    IAerodromeRouter(router).swapExactTokensForTokens(amountToSell, amountOutMin, routes, address(this), deadline);
+    // First, check if we can swap the full amount within price limit
+    uint256 swapAmount = amountToSell;
 
-    // Calculate actual amounts from balance differences
-    uint256 gave = initialInbound - IERC20(inToken).balanceOf(address(this));
-    uint256 got = IERC20(outToken).balanceOf(address(this)) - initialOutbound;
+    try IAerodromeRouter(router).getAmountsOut(swapAmount, routes) returns (uint256[] memory amounts) {
+      uint256 expectedOutput = amounts[amounts.length - 1];
+      Tick estimatedTick = TickLib.tickFromVolumes(swapAmount, expectedOutput);
 
-    // Verify price is within limits
-    _validateSwapPrice(gave, got, maxTick);
+      // If estimated price is worse than maxTick, calculate the maximum amount we can swap
+      if (Tick.unwrap(estimatedTick) > Tick.unwrap(maxTick)) {
+        // Binary search to find the largest amount that stays within price limit
+        swapAmount = _findMaxSwapAmount(inToken, routes, maxTick, swapAmount);
 
-    // Reset approval and transfer tokens back
-    _returnTokens(inToken, outToken, got, msg.sender);
+        // If we couldn't find a valid amount, return without swapping
+        if (swapAmount == 0) {
+          return;
+        }
+      }
+    } catch {
+      // If getAmountsOut fails, we'll try with a smaller amount
+      swapAmount = amountToSell / 2;
+    }
+
+    uint256 initialInbound = IERC20(inToken).balanceOf(address(this));
+    uint256 initialOutbound = IERC20(outToken).balanceOf(address(this));
+
+    // Approve router to spend tokens
+    IERC20(inToken).approve(address(router), swapAmount);
+
+    try IAerodromeRouter(router).swapExactTokensForTokens(swapAmount, 0, routes, address(this), deadline) {
+      // Calculate actual amounts from balance differences
+      uint256 gave = initialInbound - IERC20(inToken).balanceOf(address(this));
+      uint256 got = IERC20(outToken).balanceOf(address(this)) - initialOutbound;
+
+      // Verify price is within limits
+      if (gave > 0 && got > 0) {
+        Tick inferredTick = TickLib.tickFromVolumes(gave, got);
+        if (Tick.unwrap(inferredTick) > Tick.unwrap(maxTick)) {
+          revert PriceExceedsLimit();
+        }
+      }
+
+      // Reset approval and transfer tokens back
+      _returnTokens(inToken, outToken, got, msg.sender);
+    } catch {
+      // If swap fails, return tokens to caller
+      _returnTokens(inToken, outToken, 0, msg.sender);
+    }
   }
 
-  /// @dev Verify the executed price doesn't exceed maxTick
-  function _validateSwapPrice(uint256 gave, uint256 got, Tick maxTick) internal pure {
-    // If nothing was swapped, no need to check price
-    if (gave == 0 || got == 0) return;
+  /// @dev Find the maximum amount that can be swapped within the price limit
+  /// @param inToken The input token
+  /// @param routes The swap routes
+  /// @param maxTick The maximum acceptable price tick
+  /// @param initialAmount The initial amount to try
+  /// @return maxAmount The maximum amount that can be swapped within price limit
+  function _findMaxSwapAmount(
+    address inToken,
+    IAerodromeRouter.Route[] memory routes,
+    Tick maxTick,
+    uint256 initialAmount
+  ) internal view returns (uint256 maxAmount) {
+    uint256 low = 0;
+    uint256 high = initialAmount;
+    uint256 mid;
+    uint256 bestAmount = 0;
 
-    Tick inferredTick = TickLib.tickFromVolumes(gave, got);
-    if (Tick.unwrap(inferredTick) > Tick.unwrap(maxTick)) {
-      revert PriceExceedsLimit();
+    // Binary search with a maximum of 8 iterations
+    for (uint256 i = 0; i < 8; i++) {
+      if (low >= high) break;
+
+      mid = (low + high) / 2;
+      if (mid == 0) break;
+
+      try IAerodromeRouter(router).getAmountsOut(mid, routes) returns (uint256[] memory amounts) {
+        uint256 expectedOutput = amounts[amounts.length - 1];
+        Tick estimatedTick = TickLib.tickFromVolumes(mid, expectedOutput);
+
+        if (Tick.unwrap(estimatedTick) <= Tick.unwrap(maxTick)) {
+          // This amount works, try a larger one
+          bestAmount = mid;
+          low = mid + 1;
+        } else {
+          // This amount exceeds price limit, try a smaller one
+          high = mid;
+        }
+      } catch {
+        // Query failed, try a smaller amount
+        high = mid;
+      }
     }
+
+    return bestAmount;
   }
 
   /// @dev Return tokens back to the caller
   function _returnTokens(address inToken, address outToken, uint256 gotAmount, address recipient) internal {
-    IERC20(inToken).forceApprove(address(router), 0);
-    IERC20(inToken).safeTransfer(recipient, IERC20(inToken).balanceOf(address(this)));
-    IERC20(outToken).safeTransfer(recipient, gotAmount);
-  }
+    IERC20(inToken).approve(address(router), 0);
 
-  /// @dev Calculate the minimum output amount based on the max tick price
-  /// @param olKey The offer list key containing the token pair
-  /// @param amountIn Amount of tokens to sell
-  /// @param maxTick Maximum price (as a tick) willing to accept
-  /// @return minAmountOut Minimum amount to receive to satisfy the max tick price
-  function _calculateMinimumAmountOut(OLKey memory olKey, uint256 amountIn, Tick maxTick)
-    internal
-    pure
-    returns (uint256 minAmountOut)
-  {
-    // In Mangrove, tick represents the price ratio as inbound/outbound
-    // We need to convert this to a minimum amount of outbound tokens
+    uint256 remainingInToken = IERC20(inToken).balanceOf(address(this));
+    if (remainingInToken > 0) {
+      IERC20(inToken).safeTransfer(recipient, remainingInToken);
+    }
 
-    // Use TickLib's outboundFromInbound function
-    // This converts an inbound amount to outbound amount based on the tick
-    minAmountOut = TickLib.outboundFromInbound(maxTick, amountIn);
-
-    return minAmountOut;
-  }
-
-  /// @dev Utility function to get the Aerodrome router route data
-  /// @param stable Whether the route uses stable pools
-  /// @param factory The factory that created the pool
-  /// @param deadline Timestamp after which the swap will revert
-  /// @return Encoded bytes to be passed to externalSwap
-  function encodeRouteData(bool stable, address factory, uint256 deadline) external pure returns (bytes memory) {
-    return abi.encode(stable, factory, deadline);
+    if (gotAmount > 0) {
+      IERC20(outToken).safeTransfer(recipient, gotAmount);
+    }
   }
 }

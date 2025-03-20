@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest, console} from "../BaseTest.t.sol";
-import {AerodromeSwapper} from "../../../src/modules/AerodromeSwapper.sol";
+import {AerodromeSwapper, Tick, TickLib} from "../../../src/modules/AerodromeSwapper.sol";
 import {AerodromeSwapperWrapper} from "../../helpers/mock/AerodromeSwapperWrapper.sol";
 import {IERC20} from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
@@ -19,5 +19,11 @@ abstract contract BaseAerodromeSwapperTest is BaseTest {
 
   function deployAerodromeSwapper(address ghostBook, address router) public {
     swapper = new AerodromeSwapperWrapper(ghostBook, router);
+  }
+
+  // Helper to calculate a price tick from pool reserves
+  function _calculateTickFromReserves(uint256 reserveIn, uint256 reserveOut) internal pure returns (Tick) {
+    // For Aerodrome/Uniswap V2 style pools, price is reserveOut/reserveIn
+    return TickLib.tickFromVolumes(reserveIn, reserveOut);
   }
 }
