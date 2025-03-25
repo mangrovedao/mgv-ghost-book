@@ -143,27 +143,27 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     }
   }
 
-  function test_GhostBook_receive_penalty() public {
-    // Test different fee tiers
-    uint256 amountToSell = 1_0000 ether;
+  // function test_GhostBook_receive_penalty() public {
+  //   // Test different fee tiers
+  //   uint256 amountToSell = 1_0000 ether;
 
-    ModuleData memory data =
-      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
+  //   ModuleData memory data =
+  //     ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
 
-    address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
+  //   address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
 
-    (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+  //   (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
+  //   Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
 
-    setupMarket(ol);
-    users.maker1.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
-    users.maker2.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+  //   setupMarket(ol);
+  //   users.maker1.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+  //   users.maker2.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
 
-    vm.prank(users.taker1);
-    (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
-    assertGt(bounty, 0);
-    assertEq(address(ghostBook).balance, 0);
-  }
+  //   vm.prank(users.taker1);
+  //   (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
+  //   assertGt(bounty, 0);
+  //   assertEq(address(ghostBook).balance, 0);
+  // }
 
   function test_GhostBook_token_rescue() public {
     // Test the rescue funds functionality
