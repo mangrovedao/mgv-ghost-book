@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+  // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BaseMangroveTest, BaseTest, console} from "../base/BaseMangroveTest.t.sol";
-import {BaseUniswapV3SwapperTest, console} from "../base/modules/BaseUniswapV3SwapperTest.t.sol";
+import {BaseMangroveTest, BaseTest, console} from "../../base/BaseMangroveTest.t.sol";
+import {BaseUniswapV3SwapperTest, console} from "../../base/modules/BaseUniswapV3SwapperTest.t.sol";
 import {UniswapV3Swapper} from "src/modules/UniswapV3Swapper.sol";
 import {MangroveGhostBook, ModuleData} from "src/MangroveGhostBook.sol";
 import {IUniswapV3Factory} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -11,11 +11,12 @@ import {IExternalSwapModule} from "src/interface/IExternalSwapModule.sol";
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
 
-contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
+contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3SwapperTest {
   MangroveGhostBook public ghostBook;
   OLKey public ol;
 
-  function setUp() public override(BaseMangroveTest, BaseTest) {
+  function setUp() public override(BaseUniswapV3SwapperTest, BaseMangroveTest) {
+    chain = ForkChain.ARBITRUM;
     super.setUp();
     setUpLabels();
 

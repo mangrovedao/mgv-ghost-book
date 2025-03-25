@@ -35,6 +35,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
   /// @inheritdoc IExternalSwapModule
   function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data)
     external
+    virtual
     onlyGhostBook
   {
     // Decode needed data for the swap

@@ -6,7 +6,7 @@ import {Tick, TickLib} from "@mgv/lib/core/TickLib.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import {IAerodromeRouter} from "src/interface/vendors/IAerodrome.sol";
+import {IAerodromeRouter} from "src/interface/vendors/IAerodromeRouter.sol";
 import "@openzeppelin-contracts/utils/math/Math.sol";
 
 /// @title AerodromeSwapper - An Aerodrome integration to perform limit order swaps on Aerodrome pools

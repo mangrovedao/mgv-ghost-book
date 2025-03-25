@@ -52,6 +52,7 @@ contract BaseMangroveTest is BaseTest {
     tokens.push(USDT);
     tokens.push(WeETH);
     tokens.push(ARB);
+    tokens.push(DAI);
 
     // Deal tokens
     dealTokens(address(users.maker1), tokens, 10_000);

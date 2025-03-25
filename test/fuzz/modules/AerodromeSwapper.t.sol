@@ -6,7 +6,7 @@ import {AerodromeSwapperWrapper, AerodromeSwapper} from "../../helpers/mock/Aero
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {Tick, TickLib} from "@mgv/lib/core/TickLib.sol";
-import {IAerodromeRouter} from "src/interface/vendors/IAerodrome.sol";
+import {IAerodromeRouter} from "src/interface/vendors/IAerodromeRouter.sol";
 
 contract AerodromeSwapperTest is BaseAerodromeSwapperTest {
   address ghostBook = makeAddr("mgv-ghostbook");

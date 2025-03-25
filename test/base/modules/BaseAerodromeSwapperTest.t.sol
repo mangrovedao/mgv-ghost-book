@@ -13,8 +13,8 @@ abstract contract BaseAerodromeSwapperTest is BaseTest {
   address public constant AERODROME_FACTORY = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
 
   function setUp() public virtual override {
-    // Override and set base fork
-    setBaseFork();
+    chain = ForkChain.BASE;
+    super.setUp();
   }
 
   function deployAerodromeSwapper(address ghostBook, address router) public {

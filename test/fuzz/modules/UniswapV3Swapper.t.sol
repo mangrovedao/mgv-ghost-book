@@ -64,4 +64,56 @@ contract UniswapV3SwapperTest is BaseUniswapV3SwapperTest {
 
     assertLt(Tick.unwrap(tick), Tick.unwrap(maxTick));
   }
+
+  function testFuzz_UniswapV3Swapper_swap_varying_amounts(uint256 amountToSell) public {
+    // Bound amount between 0.01 ETH and 10 ETH
+    amountToSell = bound(amountToSell, 0.01 ether, 10 ether);
+
+    address factory = UNISWAP_V3_FACTORY_ARBITRUM;
+    address router = UNISWAP_V3_ROUTER_ARBITRUM;
+    uint24 fee = 500; // 0.05% fee tier
+
+    deal(address(WETH), address(swapper), amountToSell);
+
+    OLKey memory ol = OLKey({
+      outbound_tkn: address(USDC),
+      inbound_tkn: address(WETH),
+      tickSpacing: 0 // irrelevant for the test
+    });
+
+    address pool = IUniswapV3Factory(factory).getPool(address(WETH), address(USDC), fee);
+
+    // Get current price from pool
+    (, int24 spotTick,,,,,) = IUniswapV3Pool(pool).slot0();
+
+    // Set a max tick with large buffer to ensure trade goes through
+    // Adding buffer here since we want the test to succeed for all amounts
+    Tick maxTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+
+    console.log("Spot tick:", spotTick);
+    console.log("Max tick:", Tick.unwrap(maxTick));
+    console.log("Amount to sell:", amountToSell);
+
+    uint256 tokenInBalanceBefore = WETH.balanceOf(address(swapper));
+    uint256 tokenOutBalanceBefore = USDC.balanceOf(address(ghostBook));
+
+    vm.prank(ghostBook);
+    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(router, fee));
+
+    uint256 tokenInBalanceAfter = WETH.balanceOf(address(ghostBook));
+    uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));
+
+    uint256 amountOut = tokenOutBalanceAfter - tokenOutBalanceBefore;
+    uint256 amountIn = tokenInBalanceBefore - tokenInBalanceAfter;
+
+    console.log("Amount spent:", amountIn);
+    console.log("Amount received:", amountOut);
+
+    assertGt(amountOut, 0, "No tokens received");
+    assertGt(amountIn, 0, "No tokens spent");
+
+    // Test that the executed price is within bounds
+    Tick executedTick = TickLib.tickFromVolumes(amountIn, amountOut);
+    assertLe(Tick.unwrap(executedTick), Tick.unwrap(maxTick), "Executed price exceeds max tick");
+  }
 }

@@ -10,10 +10,13 @@ contract BaseTest is Test {
   IERC20 public constant USDT_ARBITRUM = IERC20(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9);
   IERC20 public constant WeETH_ARBITRUM = IERC20(0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe);
   IERC20 public constant ARB_ARBITRUM = IERC20(0x912CE59144191C1204E64559FE8253a0e49E6548);
+  IERC20 public constant DAI_ARBITRUM = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
 
   // Base token addresses
   IERC20 public constant WETH_BASE = IERC20(0x4200000000000000000000000000000000000006);
   IERC20 public constant USDC_BASE = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+  IERC20 public constant DAI_BASE = IERC20(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb);
+  IERC20 public constant USDT_BASE = IERC20(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA);
 
   // Current chain tokens
   IERC20 public WETH;
@@ -21,12 +24,23 @@ contract BaseTest is Test {
   IERC20 public USDT;
   IERC20 public WeETH;
   IERC20 public ARB;
+  IERC20 public DAI;
+
+  enum ForkChain {
+    BASE,
+    ARBITRUM
+  }
 
   uint256 public chainFork;
+  ForkChain public chain;
 
   function setUp() public virtual {
-    // Default to Arbitrum if no specific chain is selected
-    setArbitrumFork();
+    if (chain == ForkChain.BASE) {
+      setBaseFork();
+    }
+    if (chain == ForkChain.ARBITRUM) {
+      setArbitrumFork();
+    }
   }
 
   function setArbitrumFork() internal {
@@ -41,6 +55,7 @@ contract BaseTest is Test {
     USDT = USDT_ARBITRUM;
     WeETH = WeETH_ARBITRUM;
     ARB = ARB_ARBITRUM;
+    DAI = DAI_ARBITRUM;
   }
 
   function setBaseFork() internal {
@@ -52,16 +67,17 @@ contract BaseTest is Test {
     // Set token addresses for Base
     WETH = WETH_BASE;
     USDC = USDC_BASE;
-    USDT = IERC20(address(0)); // Not available on Base
+    USDT = USDT_BASE; // Not available on Base
     WeETH = IERC20(address(0)); // Not available on Base
     ARB = IERC20(address(0)); // Not available on Base
+    DAI = DAI_BASE;
   }
 
   function dealTokens(address user, IERC20[] memory tokens, uint256 amount) internal {
     for (uint256 i = 0; i < tokens.length; i++) {
       if (address(tokens[i]) != address(0)) {
         // Only deal if token exists on chain
-        deal(address(tokens[i]), user, amount * 10 ** IERC20Metadata(address(tokens[i])).decimals());
+        deal(address(tokens[i]), user, amount * 10_000 ** IERC20Metadata(address(tokens[i])).decimals());
       }
     }
   }
