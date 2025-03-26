@@ -64,7 +64,7 @@ contract MangroveGhostBookStreamSplitTest is BaseMangroveTest, BaseSplitStreamSw
     uint256 amountToSell = 0.1 ether;
     ModuleData memory data = ModuleData({
       module: IExternalSwapModule(address(swapper)),
-      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600)
+      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600, uint24(TICK_SPACING))
     });
 
     setupMarket(ol);
@@ -83,7 +83,7 @@ contract MangroveGhostBookStreamSplitTest is BaseMangroveTest, BaseSplitStreamSw
     uint256 amountToSell = 0.5 ether;
     ModuleData memory data = ModuleData({
       module: IExternalSwapModule(address(swapper)),
-      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600)
+      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600, uint24(TICK_SPACING))
     });
 
     setupMarket(ol);
@@ -105,7 +105,7 @@ contract MangroveGhostBookStreamSplitTest is BaseMangroveTest, BaseSplitStreamSw
     uint256 amountToSell = 1 ether;
     ModuleData memory data = ModuleData({
       module: IExternalSwapModule(address(swapper)),
-      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600)
+      data: abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), block.timestamp + 3600, uint24(TICK_SPACING))
     });
 
     setupMarket(ol);

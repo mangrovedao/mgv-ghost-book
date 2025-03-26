@@ -61,8 +61,9 @@ contract SplitStreamSwapperTest is BaseSplitStreamSwapperTest {
     uint256 deadline = block.timestamp + 3600;
 
     vm.prank(ghostBook);
-    try swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), deadline))
-    {
+    try swapper.externalSwap(
+      ol, amountToSell, maxTick, abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), deadline, TICK_SPACING)
+    ) {
       uint256 tokenInBalanceAfter = USDT.balanceOf(address(ghostBook));
       uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));
 
@@ -111,7 +112,9 @@ contract SplitStreamSwapperTest is BaseSplitStreamSwapperTest {
     uint256 deadline = block.timestamp + 3600;
 
     vm.prank(ghostBook);
-    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), deadline));
+    swapper.externalSwap(
+      ol, amountToSell, maxTick, abi.encode(SPLITSTREAM_ROUTER, uint24(TICK_SPACING), deadline, TICK_SPACING)
+    );
 
     uint256 tokenInBalanceAfter = USDT.balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = USDC.balanceOf(address(ghostBook));
