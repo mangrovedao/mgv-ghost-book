@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+  // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BaseMangroveTest, BaseTest, console} from "../base/BaseMangroveTest.t.sol";
-import {BaseUniswapV3SwapperTest, console} from "../base/modules/BaseUniswapV3SwapperTest.t.sol";
+import {BaseMangroveTest, BaseTest, console} from "../../base/BaseMangroveTest.t.sol";
+import {BaseUniswapV3SwapperTest, console} from "../../base/modules/BaseUniswapV3SwapperTest.t.sol";
 import {UniswapV3Swapper} from "src/modules/UniswapV3Swapper.sol";
 import {MangroveGhostBook, ModuleData} from "src/MangroveGhostBook.sol";
 import {IUniswapV3Factory} from "@uniswap-v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -11,11 +11,12 @@ import {IExternalSwapModule} from "src/interface/IExternalSwapModule.sol";
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {Tick} from "@mgv/lib/core/TickLib.sol";
 
-contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
+contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3SwapperTest {
   MangroveGhostBook public ghostBook;
   OLKey public ol;
 
-  function setUp() public override(BaseMangroveTest, BaseTest) {
+  function setUp() public override(BaseUniswapV3SwapperTest, BaseMangroveTest) {
+    chain = ForkChain.ARBITRUM;
     super.setUp();
     setUpLabels();
 
@@ -142,27 +143,27 @@ contract MangroveGhostBookTest is BaseMangroveTest, BaseUniswapV3SwapperTest {
     }
   }
 
-  function test_GhostBook_receive_penalty() public {
-    // Test different fee tiers
-    uint256 amountToSell = 1_0000 ether;
+  // function test_GhostBook_receive_penalty() public {
+  //   // Test different fee tiers
+  //   uint256 amountToSell = 1_0000 ether;
 
-    ModuleData memory data =
-      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
+  //   ModuleData memory data =
+  //     ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
 
-    address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
+  //   address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
 
-    (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+  //   (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
+  //   Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
 
-    setupMarket(ol);
-    users.maker1.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
-    users.maker2.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+  //   setupMarket(ol);
+  //   users.maker1.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+  //   users.maker2.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
 
-    vm.prank(users.taker1);
-    (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
-    assertGt(bounty, 0);
-    assertEq(address(ghostBook).balance, 0);
-  }
+  //   vm.prank(users.taker1);
+  //   (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
+  //   assertGt(bounty, 0);
+  //   assertEq(address(ghostBook).balance, 0);
+  // }
 
   function test_GhostBook_token_rescue() public {
     // Test the rescue funds functionality

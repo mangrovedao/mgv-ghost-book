@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {MangroveGhostBookDeployer, MangroveGhostBook, console} from "../MangroveGhostBookDeployer.s.sol";
 
 abstract contract ModuleDeployer is MangroveGhostBookDeployer {
-
   address public module;
 
   error ERROR_DEPLOYMENT_ADDRESS_0();
