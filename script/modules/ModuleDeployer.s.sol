@@ -15,7 +15,7 @@ abstract contract ModuleDeployer is MangroveGhostBookDeployer {
     return true;
   }
 
-  function run(bool testMode) public ghostBookDeployer {
+  function run(bool testMode, bool whitelistModule) public ghostBookDeployer {
     module = deployModule();
     testAddress = vm.envOr("TEST_ADDRESS", address(0));
     if (module == address(0)) {
@@ -26,11 +26,13 @@ abstract contract ModuleDeployer is MangroveGhostBookDeployer {
     } else {
       vm.startBroadcast();
     }
-    try mangroveGhostBook.whitelistModule(module) {
-      console.log("Module whitelisted:", module);
-    } catch (bytes memory reason) {
-      console.log("Failed to whitelist module:", module);
-      console.log("Current broadcaster is probably not the owner");
+    if(whitelistModule) {
+      try mangroveGhostBook.whitelistModule(module) {
+        console.log("Module whitelisted:", module);
+      } catch (bytes memory reason) {
+        console.log("Failed to whitelist module:", module);
+        console.log("Current broadcaster is probably not the owner");
+      }
     }
     if (testMode) {
       bool success = liveTestModule(module);
