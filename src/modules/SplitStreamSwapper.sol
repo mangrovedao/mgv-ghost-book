@@ -17,23 +17,23 @@ contract SplitStreamSwapper is UniswapV3Swapper {
   {
     // Decode needed data for the swap
     (address router, uint24 fee, uint256 deadline, uint24 tickSpacing) = _decodeSwapData(data);
-    
+
     // Approve router to spend tokens
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
-    
+
     // Calculate price limit
     uint160 sqrtPriceLimitX96 = _calculatePriceLimit(olKey, maxTick, fee);
-    
+
     // Prepare for the swap and store initial balances
     (uint256 initialInboundBalance, uint256 initialOutboundBalance) = _prepareForSwap(olKey, amountToSell);
-    
+
     // Execute the swap
     _executeSwap(router, olKey, amountToSell, deadline, tickSpacing, sqrtPriceLimitX96);
-    
+
     // Finalize the swap and transfer tokens back
     _finalizeSwap(router, olKey, initialInboundBalance, initialOutboundBalance);
   }
-  
+
   /**
    * @dev Decodes the swap data from bytes
    * @param data The encoded swap data
@@ -42,14 +42,14 @@ contract SplitStreamSwapper is UniswapV3Swapper {
    * @return deadline The swap deadline
    * @return tickSpacing The tick spacing
    */
-  function _decodeSwapData(bytes memory data) 
-    internal 
-    pure 
-    returns (address router, uint24 fee, uint256 deadline, uint24 tickSpacing) 
+  function _decodeSwapData(bytes memory data)
+    internal
+    pure
+    returns (address router, uint24 fee, uint256 deadline, uint24 tickSpacing)
   {
     return abi.decode(data, (address, uint24, uint256, uint24));
   }
-  
+
   /**
    * @dev Calculates the price limit for the swap
    * @param olKey The order book key
@@ -57,19 +57,19 @@ contract SplitStreamSwapper is UniswapV3Swapper {
    * @param fee The fee amount
    * @return sqrtPriceLimitX96 The calculated price limit
    */
-  function _calculatePriceLimit(OLKey memory olKey, Tick maxTick, uint24 fee) 
-    internal 
-    view 
-    returns (uint160 sqrtPriceLimitX96) 
+  function _calculatePriceLimit(OLKey memory olKey, Tick maxTick, uint24 fee)
+    internal
+    view
+    returns (uint160 sqrtPriceLimitX96)
   {
     int24 mgvTick = int24(Tick.unwrap(maxTick));
     int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
     uniswapTick = _adjustTickForFees(uniswapTick, fee);
-    
+
     // Validate price limit is within bounds
     return TickMath.getSqrtRatioAtTick(uniswapTick);
   }
-  
+
   /**
    * @dev Prepares for the swap by storing initial balances
    * @param olKey The order book key
@@ -77,16 +77,16 @@ contract SplitStreamSwapper is UniswapV3Swapper {
    * @return initialInboundBalance The initial balance of inbound token
    * @return initialOutboundBalance The initial balance of outbound token
    */
-  function _prepareForSwap(OLKey memory olKey, uint256 amountToSell) 
-    internal 
-    view 
-    returns (uint256 initialInboundBalance, uint256 initialOutboundBalance) 
+  function _prepareForSwap(OLKey memory olKey, uint256 amountToSell)
+    internal
+    view
+    returns (uint256 initialInboundBalance, uint256 initialOutboundBalance)
   {
     initialInboundBalance = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - amountToSell;
     initialOutboundBalance = IERC20(olKey.outbound_tkn).balanceOf(address(this));
     return (initialInboundBalance, initialOutboundBalance);
   }
-  
+
   /**
    * @dev Executes the swap through the SplitStream router
    * @param router The router address
@@ -114,10 +114,10 @@ contract SplitStreamSwapper is UniswapV3Swapper {
       amountOutMinimum: 0,
       sqrtPriceLimitX96: sqrtPriceLimitX96
     });
-    
+
     ISplitStreamRouter(router).exactInputSingle(params);
   }
-  
+
   /**
    * @dev Finalizes the swap by calculating amounts and transferring tokens
    * @param router The router address
@@ -134,7 +134,7 @@ contract SplitStreamSwapper is UniswapV3Swapper {
     // Calculate actual amounts from balance differences
     uint256 gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) - initialInboundBalance;
     uint256 got = IERC20(olKey.outbound_tkn).balanceOf(address(this)) - initialOutboundBalance;
-    
+
     // Transfer tokens back
     IERC20(olKey.inbound_tkn).forceApprove(address(router), 0);
     IERC20(olKey.inbound_tkn).safeTransfer(msg.sender, gave);
