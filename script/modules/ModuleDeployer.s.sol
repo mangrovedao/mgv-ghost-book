@@ -26,7 +26,7 @@ abstract contract ModuleDeployer is MangroveGhostBookDeployer {
     } else {
       vm.startBroadcast();
     }
-    if(whitelistModule) {
+    if (whitelistModule) {
       try mangroveGhostBook.whitelistModule(module) {
         console.log("Module whitelisted:", module);
       } catch (bytes memory reason) {
