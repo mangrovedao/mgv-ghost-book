@@ -121,4 +121,17 @@ contract BaseTest is Test {
 
     return calldataWithoutSelector;
   }
+
+  function assertApproxEq(uint256 a, uint256 b, uint256 maxDelta) internal virtual {
+    uint256 delta = a > b ? a - b : b - a;
+
+    if (delta > maxDelta) {
+      emit log("Error: a ~= b not satisfied [uint]");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+      emit log_named_uint(" Max Delta", maxDelta);
+      emit log_named_uint("     Delta", delta);
+      fail();
+    }
+  }
 }

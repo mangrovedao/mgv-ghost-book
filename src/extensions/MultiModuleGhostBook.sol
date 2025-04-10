@@ -10,13 +10,11 @@ import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {GhostBookEvents} from "../libraries/GhostBookEvents.sol";
 
-/// @title MultiModuleData - Extension of module data for multi-module routing
-/// @notice Structure to define multiple modules and their respective swap percentages
+/// @title MultiModuleData - Module data with priority-based execution
+/// @notice Structure to define a prioritized list of modules to use sequentially
 struct MultiModuleData {
-  /// @notice Array of modules to use for the swap
+  /// @notice Array of modules to use for the swap (in priority order)
   ModuleData[] modules;
-  /// @notice Percentages of the total amount to route through each module (in basis points, 100 = 1%)
-  uint16[] percentages;
 }
 
 /// @title OrderResults - Struct for storing the results of order execution
@@ -32,43 +30,29 @@ struct OrderResults {
   uint256 unusedAmount;
 }
 
-/// @title MultiModuleGhostBook - GhostBook extension that routes swaps through multiple external modules
-/// @notice Extends MangroveGhostBook to provide multi-module routing capabilities
+/// @title MultiModuleGhostBook - GhostBook extension for sequential module execution
+/// @notice Extends MangroveGhostBook to route swaps through multiple external modules in priority order
 /// @dev All modules must be whitelisted in the parent contract
 contract MultiModuleGhostBook is MangroveGhostBook {
   using SafeERC20 for IERC20;
 
-  /// @notice Maximum basis points (100%)
-  uint16 public constant MAX_BPS = 10000;
-
   /// @notice Emitted when a multi-module order is executed
-  event MultiModuleOrderExecuted(
-    address indexed taker,
-    bytes32 indexed olKeyHash,
-    address[] modules,
-    uint16[] percentages,
-    uint256[] amountsGot,
-    uint256[] amountsGave
+  event ModuleOrderExecuted(
+    address indexed taker, bytes32 indexed olKeyHash, address[] modules, uint256[] amountsGot, uint256[] amountsGave
   );
 
   /// @notice Constructor inherits from MangroveGhostBook
   /// @param _mgv The address of the Mangrove contract
   constructor(address _mgv) MangroveGhostBook(_mgv) {}
 
-  /// @notice Error thrown when module percentages don't add up to 100%
-  error InvalidPercentages();
-
-  /// @notice Error thrown when modules and percentages arrays have different lengths
-  error ArrayLengthMismatch();
-
   /// @notice Error thrown when empty module array is provided
   error EmptyModuleArray();
 
-  /// @notice Public interface for executing a market order with multiple modules
+  /// @notice Public interface for executing a market order with multiple modules in priority order
   /// @param olKey The offer list key containing token pair and tick spacing
   /// @param maxTick Maximum price (as a tick) willing to pay
   /// @param amountToSell Amount of input tokens to sell
-  /// @param multiModuleData Data structure containing multiple modules and their allocation percentages
+  /// @param moduleData Data structure containing prioritized list of modules
   /// @return takerGot Total amount of output tokens received
   /// @return takerGave Total amount of input tokens spent
   /// @return bounty Bounty received from failed offers
@@ -77,10 +61,10 @@ contract MultiModuleGhostBook is MangroveGhostBook {
     OLKey memory olKey,
     Tick maxTick,
     uint256 amountToSell,
-    MultiModuleData calldata multiModuleData
+    MultiModuleData calldata moduleData
   ) public nonReentrant returns (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) {
-    // Validate multi-module data
-    _validateMultiModuleData(multiModuleData);
+    // Validate module data
+    _validateModuleData(moduleData);
 
     // Start order execution
     emit GhostBookEvents.OrderStarted(
@@ -96,10 +80,10 @@ contract MultiModuleGhostBook is MangroveGhostBook {
     IERC20(olKey.inbound_tkn).safeTransferFrom(msg.sender, address(this), amountToSell);
 
     // Create struct to store all results and avoid stack too deep errors
-    OrderResults memory results = _createOrderResults(multiModuleData.modules.length);
+    OrderResults memory results = _createOrderResults(moduleData.modules.length);
 
     // Execute the order and populate results
-    _executeOrder(olKey, maxTick, amountToSell, multiModuleData, results);
+    _executeOrder(olKey, maxTick, amountToSell, moduleData, results);
 
     // Return unused tokens and results to taker
     _returnTokensToTaker(
@@ -110,7 +94,6 @@ contract MultiModuleGhostBook is MangroveGhostBook {
     _emitOrderEvents(
       olKey.hash(),
       results.moduleAddresses,
-      multiModuleData.percentages,
       results.amountsGot,
       results.amountsGave,
       results.takerGot,
@@ -138,20 +121,20 @@ contract MultiModuleGhostBook is MangroveGhostBook {
   /// @param olKey The offer list key
   /// @param maxTick Maximum price (as a tick) willing to pay
   /// @param amountToSell Amount of input tokens to sell
-  /// @param multiModuleData Data structure with modules and percentages
+  /// @param moduleData Data structure with prioritized modules
   /// @param results Struct to store all order execution results
   function _executeOrder(
     OLKey memory olKey,
     Tick maxTick,
     uint256 amountToSell,
-    MultiModuleData calldata multiModuleData,
+    MultiModuleData calldata moduleData,
     OrderResults memory results
   ) internal {
-    // Execute swaps via external modules
-    _executeExternalSwaps(olKey, maxTick, amountToSell, multiModuleData, results);
+    // Execute swaps via external modules in sequence
+    uint256 remainingAmount = _executeExternalSwapsInSequence(olKey, maxTick, amountToSell, moduleData, results);
 
-    // Calculate unused amount after external swaps
-    results.unusedAmount = _calculateUnusedAmount(amountToSell, results.amountsGave);
+    // Store unused amount for potential Mangrove fallback
+    results.unusedAmount = remainingAmount;
 
     // If there's any amount left, route through Mangrove
     if (results.unusedAmount > 0) {
@@ -163,64 +146,103 @@ contract MultiModuleGhostBook is MangroveGhostBook {
       _aggregateResults(results.takerGot, results.takerGave, results.amountsGot, results.amountsGave);
   }
 
-  /// @notice Executes swaps through external modules
+  /// @notice Override the externalSwap function to handle direct transfers
+  /// @param olKey The offer list key
+  /// @param amountToSell Amount to sell
+  /// @param maxTick Maximum acceptable price
+  /// @param moduleData External module information
+  /// @param taker Address that initiated the swap
+  /// @return gave Amount spent
+  /// @return got Amount received
+  function externalSwap(
+    OLKey memory olKey,
+    uint256 amountToSell,
+    Tick maxTick,
+    ModuleData calldata moduleData,
+    address taker
+  ) public override returns (uint256 gave, uint256 got) {
+    if (msg.sender != address(this)) revert GhostBookErrors.OnlyThisContractCanCallThisFunction();
+    if (!whitelistedModules[moduleData.module]) revert GhostBookErrors.ModuleNotWhitelisted();
+
+    Tick externalMaxTick = _getExternalSwapTick(olKey, maxTick);
+
+    // Store initial balances to compare after swap
+    uint256 initialInbound = IERC20(olKey.inbound_tkn).balanceOf(address(this));
+    uint256 initialOutbound = IERC20(olKey.outbound_tkn).balanceOf(address(this));
+
+    // Transfer tokens from this contract to the module (instead of from taker)
+    IERC20(olKey.inbound_tkn).safeTransfer(address(moduleData.module), amountToSell);
+
+    // Execute the swap on the module
+    moduleData.module.externalSwap(olKey, amountToSell, externalMaxTick, moduleData.data);
+
+    // Calculate actual amounts from balance differences
+    uint256 finalInbound = IERC20(olKey.inbound_tkn).balanceOf(address(this));
+    uint256 finalOutbound = IERC20(olKey.outbound_tkn).balanceOf(address(this));
+
+    // Calculate amounts based on balance differences
+    gave = initialInbound - finalInbound;
+    got = finalOutbound - initialOutbound;
+
+    // Verify price is within limits
+    if (gave > 0 && got > 0) {
+      Tick inferredTick = TickLib.tickFromVolumes(gave, got);
+      if (Tick.unwrap(inferredTick) > Tick.unwrap(maxTick)) {
+        revert GhostBookErrors.InferredTickHigherThanMaxTick(inferredTick, maxTick);
+      }
+    }
+
+    return (gave, got);
+  }
+
+  /// @notice Executes swaps through external modules in sequence until all amount is used or modules are exhausted
   /// @param olKey The offer list key
   /// @param maxTick Maximum price (as a tick) willing to pay
   /// @param amountToSell Total amount to sell
-  /// @param multiModuleData Data structure with modules and percentages
+  /// @param moduleData Data structure with prioritized modules
   /// @param results Struct to store order execution results
-  function _executeExternalSwaps(
+  /// @return remainingAmount Amount left unused after going through all modules
+  function _executeExternalSwapsInSequence(
     OLKey memory olKey,
     Tick maxTick,
     uint256 amountToSell,
-    MultiModuleData calldata multiModuleData,
+    MultiModuleData calldata moduleData,
     OrderResults memory results
-  ) internal {
-    ModuleData[] memory modules = multiModuleData.modules;
-    uint16[] memory percentages = multiModuleData.percentages;
+  ) internal returns (uint256 remainingAmount) {
+    ModuleData[] memory modules = moduleData.modules;
+    remainingAmount = amountToSell;
 
-    // Handle special case of single module
-    if (modules.length == 1) {
-      _executeModuleSwap(olKey, maxTick, amountToSell, modules[0], 0, results);
-      return;
-    }
-
-    // Multiple modules case - distribute according to percentages
-    uint256 remainingAmount = amountToSell;
-
-    for (uint256 i = 0; i < modules.length; i++) {
-      uint256 moduleAmount;
-
-      if (i == modules.length - 1) {
-        // Last module gets remaining amount
-        moduleAmount = remainingAmount;
-      } else {
-        // Calculate amount for this module
-        moduleAmount = (amountToSell * percentages[i]) / MAX_BPS;
-        remainingAmount -= moduleAmount;
+    // Try each module in sequence until remaining amount is 0 or all modules are tried
+    for (uint256 i = 0; i < modules.length && remainingAmount > 0; i++) {
+      // Skip modules that aren't whitelisted
+      if (!whitelistedModules[modules[i].module]) {
+        results.moduleAddresses[i] = address(modules[i].module);
+        continue;
       }
 
-      // Execute swap through this module if amount > 0
-      if (moduleAmount > 0) {
-        _executeModuleSwap(olKey, maxTick, moduleAmount, modules[i], i, results);
-      }
-    }
-  }
+      // Store module address for event
+      results.moduleAddresses[i] = address(modules[i].module);
 
-  /// @notice Calculates the amount not used by external modules
-  /// @param amountToSell Total amount to sell
-  /// @param amountsGave Array of amounts spent through each module
-  /// @return unusedAmount Amount not used by external modules
-  function _calculateUnusedAmount(uint256 amountToSell, uint256[] memory amountsGave)
-    internal
-    pure
-    returns (uint256 unusedAmount)
-  {
-    unusedAmount = amountToSell;
-    for (uint256 i = 0; i < amountsGave.length; i++) {
-      unusedAmount -= amountsGave[i];
+      // Try to execute swap with current module
+      try this.externalSwap(olKey, remainingAmount, maxTick, modules[i], msg.sender) returns (uint256 gave, uint256 got)
+      {
+        // Record amounts got and gave for this module
+        results.amountsGot[i] = got;
+        results.amountsGave[i] = gave;
+
+        // Update remaining amount for next module
+        remainingAmount -= gave;
+      } catch {
+        // On failure, record zero amounts for this module
+        results.amountsGot[i] = 0;
+        results.amountsGave[i] = 0;
+      }
+
+      // Reset token approvals
+      IERC20(olKey.inbound_tkn).forceApprove(address(modules[i].module), 0);
     }
-    return unusedAmount;
+
+    return remainingAmount;
   }
 
   /// @notice Executes a swap through Mangrove
@@ -306,7 +328,6 @@ contract MultiModuleGhostBook is MangroveGhostBook {
   /// @notice Emits events for order completion
   /// @param olKeyHash Hash of the offer list key
   /// @param moduleAddresses Array of module addresses used
-  /// @param percentages Array of percentages for each module
   /// @param amountsGot Array of amounts received from each module
   /// @param amountsGave Array of amounts spent through each module
   /// @param takerGot Total amount received
@@ -316,7 +337,6 @@ contract MultiModuleGhostBook is MangroveGhostBook {
   function _emitOrderEvents(
     bytes32 olKeyHash,
     address[] memory moduleAddresses,
-    uint16[] memory percentages,
     uint256[] memory amountsGot,
     uint256[] memory amountsGave,
     uint256 takerGot,
@@ -325,79 +345,23 @@ contract MultiModuleGhostBook is MangroveGhostBook {
     uint256 feePaid
   ) internal {
     // Emit detailed breakdown event
-    emit MultiModuleOrderExecuted(msg.sender, olKeyHash, moduleAddresses, percentages, amountsGot, amountsGave);
+    emit ModuleOrderExecuted(msg.sender, olKeyHash, moduleAddresses, amountsGot, amountsGave);
 
     // Emit standard order completion event
     emit GhostBookEvents.OrderCompleted(msg.sender, olKeyHash, takerGot, takerGave, bounty, feePaid);
   }
 
-  /// @notice Validates the multi-module data structure
-  /// @param multiModuleData The multi-module data to validate
-  function _validateMultiModuleData(MultiModuleData calldata multiModuleData) internal view {
+  /// @notice Validates the module data structure
+  /// @param moduleData The module data to validate
+  function _validateModuleData(MultiModuleData calldata moduleData) internal view {
     // Ensure modules array is not empty
-    if (multiModuleData.modules.length == 0) {
+    if (moduleData.modules.length == 0) {
       revert EmptyModuleArray();
     }
 
-    // Ensure modules and percentages arrays have the same length
-    if (multiModuleData.modules.length != multiModuleData.percentages.length) {
-      revert ArrayLengthMismatch();
+    // Verify first module is whitelisted (others will be checked during execution)
+    if (!whitelistedModules[moduleData.modules[0].module]) {
+      revert GhostBookErrors.ModuleNotWhitelisted();
     }
-
-    // Only check percentages if more than one module is provided
-    if (multiModuleData.modules.length > 1) {
-      // Ensure percentages add up to 100%
-      uint16 totalPercentage = 0;
-      for (uint256 i = 0; i < multiModuleData.percentages.length; i++) {
-        totalPercentage += multiModuleData.percentages[i];
-
-        // Verify each module is whitelisted
-        if (!whitelistedModules[multiModuleData.modules[i].module]) {
-          revert GhostBookErrors.ModuleNotWhitelisted();
-        }
-      }
-
-      // Validate total percentage
-      if (totalPercentage != MAX_BPS) {
-        revert InvalidPercentages();
-      }
-    } else {
-      // If only one module, verify it's whitelisted
-      if (!whitelistedModules[multiModuleData.modules[0].module]) {
-        revert GhostBookErrors.ModuleNotWhitelisted();
-      }
-    }
-  }
-
-  /// @notice Executes a swap through a single module
-  /// @param olKey The offer list key containing token pair and tick spacing
-  /// @param maxTick Maximum price (as a tick) willing to pay
-  /// @param amount Amount of input tokens to sell through this module
-  /// @param moduleData Data for the module to execute
-  /// @param index Index of the module in the arrays
-  /// @param results Struct to store order execution results
-  function _executeModuleSwap(
-    OLKey memory olKey,
-    Tick maxTick,
-    uint256 amount,
-    ModuleData memory moduleData,
-    uint256 index,
-    OrderResults memory results
-  ) internal {
-    // Store module address
-    results.moduleAddresses[index] = address(moduleData.module);
-
-    try this.externalSwap(olKey, amount, maxTick, moduleData, msg.sender) returns (uint256 gave, uint256 got) {
-      // Record amounts got and gave
-      results.amountsGot[index] = got;
-      results.amountsGave[index] = gave;
-    } catch {
-      // On failure, record zero amounts
-      results.amountsGot[index] = 0;
-      results.amountsGave[index] = 0;
-    }
-
-    // Reset token approvals
-    IERC20(olKey.inbound_tkn).forceApprove(address(moduleData.module), 0);
   }
 }

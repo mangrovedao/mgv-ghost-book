@@ -119,7 +119,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     Tick maxTick,
     ModuleData calldata moduleData,
     address taker
-  ) internal returns (uint256 gave, uint256 got) {
+  ) internal virtual returns (uint256 gave, uint256 got) {
     // Store initial balances to compare after swap
     gave = IERC20(olKey.inbound_tkn).balanceOf(address(this)) + amountToSell;
     got = IERC20(olKey.outbound_tkn).balanceOf(address(this));
@@ -154,7 +154,7 @@ contract MangroveGhostBook is ReentrancyGuard, Ownable {
     Tick maxTick,
     ModuleData calldata moduleData,
     address taker
-  ) public returns (uint256 gave, uint256 got) {
+  ) public virtual returns (uint256 gave, uint256 got) {
     if (msg.sender != address(this)) revert GhostBookErrors.OnlyThisContractCanCallThisFunction();
     if (!whitelistedModules[moduleData.module]) revert GhostBookErrors.ModuleNotWhitelisted();
 

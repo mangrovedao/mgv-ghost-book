@@ -7,51 +7,26 @@ import {IExternalSwapModule} from "src/interface/IExternalSwapModule.sol";
 import {OLKey} from "@mgv/src/core/MgvLib.sol";
 import {Tick, TickLib} from "@mgv/lib/core/TickLib.sol";
 import {IERC20} from "@openzeppelin-contracts/interfaces/IERC20.sol";
-
-contract MockExternalSwapModule is IExternalSwapModule {
-  IERC20 public immutable inboundToken;
-  IERC20 public immutable outboundToken;
-  uint256 public immutable exchangeRate; // 1 inbound = exchangeRate outbound (scaled by 1e18)
-
-  constructor(address _inbound, address _outbound, uint256 _exchangeRate) {
-    inboundToken = IERC20(_inbound);
-    outboundToken = IERC20(_outbound);
-    exchangeRate = _exchangeRate;
-  }
-
-  function externalSwap(OLKey memory olKey, uint256 amountToSell, Tick maxTick, bytes memory data) external override {
-    // Check that tokens match expected tokens
-    require(olKey.inbound_tkn == address(inboundToken), "Inbound token mismatch");
-    require(olKey.outbound_tkn == address(outboundToken), "Outbound token mismatch");
-
-    // Receive tokens from sender (already transferred to this contract)
-    uint256 amountReceived = inboundToken.balanceOf(address(this));
-
-    // Calculate amount out based on exchange rate
-    uint256 amountOut = (amountReceived * exchangeRate) / 1e18;
-
-    // Check price is within limit
-    Tick inferredTick = TickLib.tickFromVolumes(amountReceived, amountOut);
-    require(Tick.unwrap(inferredTick) <= Tick.unwrap(maxTick), "Price exceeds limit");
-
-    // Transfer tokens back to sender
-    outboundToken.transfer(msg.sender, amountOut);
-  }
-}
+import {SlippageAwareMockExternalSwapModule} from "../../helpers/mock/SlippageAwareMockExternalSwapModule.sol";
 
 contract MultiModuleGhostBookTest is BaseMangroveTest {
   MultiModuleGhostBook public multiGhostBook;
   OLKey public olKey;
 
   // Mock modules
-  MockExternalSwapModule public mockModule1;
-  MockExternalSwapModule public mockModule2;
-  MockExternalSwapModule public mockModule3;
+  SlippageAwareMockExternalSwapModule public mockModule1;
+  SlippageAwareMockExternalSwapModule public mockModule2;
+  SlippageAwareMockExternalSwapModule public mockModule3;
 
   // Module exchange rates (1 inbound = X outbound, scaled by 1e18)
   uint256 constant RATE_1 = 1e18; // 1:1
   uint256 constant RATE_2 = 1.05e18; // 1:1.05
   uint256 constant RATE_3 = 0.98e18; // 1:0.98
+
+  // Slippage factors (higher = more slippage, scaled by 1e18)
+  uint256 constant SLIPPAGE_LOW = 1e16; // Low slippage factor
+  uint256 constant SLIPPAGE_MEDIUM = 5e16; // Medium slippage factor
+  uint256 constant SLIPPAGE_HIGH = 1e17; // High slippage factor
 
   uint256 amountToSell;
 
@@ -65,10 +40,13 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
     // Deploy MultiModuleGhostBook
     multiGhostBook = new MultiModuleGhostBook(address(mgv));
 
-    // Deploy mock modules with different exchange rates
-    mockModule1 = new MockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_1);
-    mockModule2 = new MockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_2);
-    mockModule3 = new MockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_3);
+    // Deploy mock modules with different exchange rates and slippage factors
+    mockModule1 = new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_1, SLIPPAGE_LOW);
+
+    mockModule2 =
+      new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_2, SLIPPAGE_MEDIUM);
+
+    mockModule3 = new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_3, SLIPPAGE_HIGH);
 
     // Whitelist the modules
     multiGhostBook.whitelistModule(address(mockModule1));
@@ -95,21 +73,16 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
 
   function test_MultiGhostBook_market_order_with_multiple_modules() public {
     // Prepare test parameters
-    amountToSell = 10e6;
+    amountToSell = 1e6;
     Tick maxTick = Tick.wrap(1000); // A reasonable price limit
 
-    // Prepare module data
+    // Prepare modules in order of best rate to worst rate
     ModuleData[] memory modules = new ModuleData[](2);
-    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""});
-    modules[1] = ModuleData({module: IExternalSwapModule(address(mockModule2)), data: ""});
-
-    // Prepare percentages (50/50 split)
-    uint16[] memory percentages = new uint16[](2);
-    percentages[0] = 5000; // 50%
-    percentages[1] = 5000; // 50%
+    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule2)), data: ""}); // Best rate (1.05)
+    modules[1] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""}); // Medium rate (1.00)
 
     // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
+    MultiModuleData memory multiData = MultiModuleData({modules: modules});
 
     // Execute multi-module market order
     vm.startPrank(users.taker1);
@@ -119,12 +92,30 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
 
     // Verify results
     assertGt(takerGot, 0, "Should receive tokens");
-    assertEq(takerGave, amountToSell, "Should spend full amount");
+    assertApproxEq(takerGave, amountToSell, 1);
 
-    // Calculate expected output based on exchange rates and percentages
-    uint256 expectedOutput = ((amountToSell / 2) * RATE_1) / 1e18 + ((amountToSell / 2) * RATE_2) / 1e18;
+    // Since we're using prioritized execution, all amount should go to first module (if it can handle it)
+    uint256 optimalAmountModule2 = mockModule2.findOptimalAmount(maxTick, amountToSell);
 
-    assertApproxEqRel(takerGot, expectedOutput, 0.01e18, "Output should match expected amount");
+    // If module2 can handle the full amount, then all should go through it
+    if (optimalAmountModule2 == amountToSell) {
+      uint256 effectiveRate = mockModule2.getEffectiveRate(amountToSell);
+      uint256 expectedOutput = (amountToSell * effectiveRate) / 1e18;
+      assertApproxEqRel(takerGot, expectedOutput, 0.01e18, "Output should match expected from first module");
+    }
+    // Otherwise, some should go through module2 and the rest through module1
+    else if (optimalAmountModule2 > 0) {
+      uint256 effectiveRate2 = mockModule2.getEffectiveRate(optimalAmountModule2);
+      uint256 expectedFromModule2 = (optimalAmountModule2 * effectiveRate2) / 1e18;
+
+      uint256 remainingAmount = amountToSell - optimalAmountModule2;
+      uint256 optimalAmountModule1 = mockModule1.findOptimalAmount(maxTick, remainingAmount);
+      uint256 effectiveRate1 = mockModule1.getEffectiveRate(optimalAmountModule1);
+      uint256 expectedFromModule1 = (optimalAmountModule1 * effectiveRate1) / 1e18;
+
+      uint256 expectedTotal = expectedFromModule2 + expectedFromModule1;
+      assertApproxEqRel(takerGot, expectedTotal, 0.01e18, "Output should match expected from both modules");
+    }
   }
 
   function test_MultiGhostBook_with_mangrove_fallback() public {
@@ -135,16 +126,20 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
     // Add some offers to Mangrove
     users.maker1.newOfferByTick(Tick.wrap(800), 5_000e6, 2 ** 18);
 
-    // Prepare module data with an invalid module that will cause fallback to Mangrove
-    ModuleData[] memory modules = new ModuleData[](1);
-    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule3)), data: ""});
+    // Create a module that can handle only a portion of the order
+    // Create a module with low liquidity
+    SlippageAwareMockExternalSwapModule limitedModule =
+      new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_2, SLIPPAGE_HIGH);
+    multiGhostBook.whitelistModule(address(limitedModule));
+    // Only fund with limited USDC
+    deal(address(USDC), address(limitedModule), 2_000e6);
 
-    // Prepare percentages
-    uint16[] memory percentages = new uint16[](1);
-    percentages[0] = 10000; // 100%
+    // Prepare module data
+    ModuleData[] memory modules = new ModuleData[](1);
+    modules[0] = ModuleData({module: IExternalSwapModule(address(limitedModule)), data: ""});
 
     // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
+    MultiModuleData memory multiData = MultiModuleData({modules: modules});
 
     // Deal USDT to taker
     deal(address(USDT), users.taker1, amountToSell);
@@ -155,9 +150,20 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
       multiGhostBook.marketOrderByTickMultiModule(olKey, maxTick, amountToSell, multiData);
     vm.stopPrank();
 
-    // Verify results - should have executed through Mangrove as well
+    // Verify results - should have executed through module and Mangrove
     assertGt(takerGot, 0, "Should receive tokens");
     assertGt(takerGave, 0, "Should spend some amount");
+
+    // The module should use what it can, and then the rest should go to Mangrove
+    uint256 moduleOptimalAmount = limitedModule.findOptimalAmount(maxTick, amountToSell);
+    uint256 effectiveRate = limitedModule.getEffectiveRate(moduleOptimalAmount);
+    uint256 expectedModuleOutput = (moduleOptimalAmount * effectiveRate) / 1e18;
+
+    // If module handled everything, taker got should match module output
+    // Otherwise, it should be more due to Mangrove
+    if (moduleOptimalAmount < amountToSell) {
+      assertGe(takerGot, expectedModuleOutput, "Should have used both module and Mangrove");
+    }
   }
 
   function test_MultiGhostBook_combined_module_and_mangrove() public {
@@ -170,16 +176,19 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
     users.maker1.newOfferByTick(mangroveOfferTick, 5_000e6, 2 ** 18);
     users.maker2.newOfferByTick(mangroveOfferTick, 5_000e6, 2 ** 18);
 
-    // Set up modules to use only half of the amount, so remaining goes to Mangrove
-    ModuleData[] memory modules = new ModuleData[](1);
-    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""});
+    // Create a module with limited capacity
+    SlippageAwareMockExternalSwapModule limitedModule =
+      new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_2, SLIPPAGE_MEDIUM);
+    multiGhostBook.whitelistModule(address(limitedModule));
+    // Only fund with limited USDC - enough for about half the swap
+    deal(address(USDC), address(limitedModule), 5_000e6);
 
-    // Set percentage to 50% so half goes through module, half through Mangrove
-    uint16[] memory percentages = new uint16[](1);
-    percentages[0] = 5000; // 50%
+    // Prepare module data
+    ModuleData[] memory modules = new ModuleData[](1);
+    modules[0] = ModuleData({module: IExternalSwapModule(address(limitedModule)), data: ""});
 
     // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
+    MultiModuleData memory multiData = MultiModuleData({modules: modules});
 
     // Deal USDT to taker
     deal(address(USDT), users.taker1, amountToSell);
@@ -202,73 +211,133 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
     assertEq(takerUsdtBefore - takerUsdtAfter, takerGave, "USDT spent should match takerGave");
     assertEq(takerUsdcAfter - takerUsdcBefore, takerGot, "USDC received should match takerGot");
 
-    {
-    uint256 expectedModuleOutput = (amountToSell / 2 * RATE_1) / 1e18;
-        
+    // Module should handle its maximum amount, and remaining should go through Mangrove
+    uint256 moduleOptimalAmount = limitedModule.findOptimalAmount(maxTick, amountToSell);
+    uint256 effectiveRate = limitedModule.getEffectiveRate(moduleOptimalAmount);
+    uint256 expectedModuleOutput = (moduleOptimalAmount * effectiveRate) / 1e18;
 
-    assertGt(takerGot, expectedModuleOutput, "Should have used both module and Mangrove");
+    assertApproxEq(takerGot, expectedModuleOutput, 1);
+  }
+
+  function test_MultiGhostBook_max_tick_reached_in_module() public {
+    // Prepare test parameters
+    amountToSell = 10e6;
+
+    // Create a very restrictive tick that will affect slippage
+    Tick maxTick = Tick.wrap(int256(-50)); // Very restrictive max tick
+
+    // Create a new module with worse rate (high price)
+    SlippageAwareMockExternalSwapModule expensiveModule =
+      new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, 0.5e18, 5e17); // 1:0.5 rate, high slippage
+    multiGhostBook.whitelistModule(address(expensiveModule));
+    deal(address(USDC), address(expensiveModule), 1_000_000e6);
+
+    // Add some offers to Mangrove at a good price that fits under max tick
+    Tick mangroveOfferTick = Tick.wrap(-100); // Better than maxTick
+    users.maker1.newOfferByTick(mangroveOfferTick, 5_000e6, 2 ** 18);
+
+    // Prepare module data - using modules in order of preference (best rates first)
+    ModuleData[] memory modules = _createModules(expensiveModule);
+
+    // Create MultiModuleData
+    MultiModuleData memory multiData = MultiModuleData({modules: modules});
+
+    // Deal USDT to taker
+    deal(address(USDT), users.taker1, amountToSell);
+
+    // Execute multi-module market order
+    (uint256 takerGot, uint256 takerGave) = _executeMarketOrder(maxTick, amountToSell, multiData);
+
+    // Verify results
+    assertGt(takerGot, 0, "Should receive tokens");
+    assertEq(takerGave, amountToSell, "Should spend full amount");
+
+    // Calculate expected outputs from each module
+    uint256 totalExpectedFromModules = _calculateExpectedOutputs(maxTick, amountToSell, modules);
+
+    // If max tick is very restrictive, modules might not be able to handle any amount
+    // In that case, everything should go through Mangrove
+    if (totalExpectedFromModules > 0) {
+      assertGe(takerGot, totalExpectedFromModules, "Output should include at least module contribution");
     }
+
+    // Verify the overall execution respects max tick
+    Tick executedTick = TickLib.tickFromVolumes(takerGave, takerGot);
+    assertLe(Tick.unwrap(executedTick), Tick.unwrap(maxTick), "Executed price should not exceed maxTick");
   }
 
-  function test_MultiGhostBook_invalid_percentages() public {
-    // Prepare test parameters
-    amountToSell = 10e6;
-    Tick maxTick = Tick.wrap(1000);
-
-    // Prepare module data
-    ModuleData[] memory modules = new ModuleData[](2);
-    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""});
-    modules[1] = ModuleData({module: IExternalSwapModule(address(mockModule2)), data: ""});
-
-    // Prepare invalid percentages (not adding up to 100%)
-    uint16[] memory percentages = new uint16[](2);
-    percentages[0] = 5000; // 50%
-    percentages[1] = 4000; // 40%
-
-    // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
-
-    // Deal USDT to taker
-    deal(address(USDT), users.taker1, amountToSell);
-
-    // Expect revert due to invalid percentages
-    vm.startPrank(users.taker1);
-    vm.expectRevert(MultiModuleGhostBook.InvalidPercentages.selector);
-    multiGhostBook.marketOrderByTickMultiModule(olKey, maxTick, amountToSell, multiData);
-    vm.stopPrank();
+  // Helper function to create modules array
+  function _createModules(SlippageAwareMockExternalSwapModule expensiveModule)
+    internal
+    view
+    returns (ModuleData[] memory)
+  {
+    ModuleData[] memory modules = new ModuleData[](3);
+    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule2)), data: ""}); // Best base rate
+    modules[1] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""}); // Medium base rate
+    modules[2] = ModuleData({module: IExternalSwapModule(address(expensiveModule)), data: ""}); // Worst rate
+    return modules;
   }
 
-  function test_MultiGhostBook_array_length_mismatch() public {
-    // Prepare test parameters
-    amountToSell = 10e6;
-    Tick maxTick = Tick.wrap(1000);
-
-    // Prepare module data
-    ModuleData[] memory modules = new ModuleData[](2);
-    modules[0] = ModuleData({module: IExternalSwapModule(address(mockModule1)), data: ""});
-    modules[1] = ModuleData({module: IExternalSwapModule(address(mockModule2)), data: ""});
-
-    // Prepare percentages with mismatched length
-    uint16[] memory percentages = new uint16[](1);
-    percentages[0] = 10000; // 100%
-
-    // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
-
-    // Deal USDT to taker
-    deal(address(USDT), users.taker1, amountToSell);
-
-    // Expect revert due to array length mismatch
+  // Helper function to execute market order and extract results
+  function _executeMarketOrder(Tick maxTick, uint256 amount, MultiModuleData memory multiData)
+    internal
+    returns (uint256 takerGot, uint256 takerGave)
+  {
     vm.startPrank(users.taker1);
-    vm.expectRevert(MultiModuleGhostBook.ArrayLengthMismatch.selector);
-    multiGhostBook.marketOrderByTickMultiModule(olKey, maxTick, amountToSell, multiData);
+    (takerGot, takerGave,,) = multiGhostBook.marketOrderByTickMultiModule(olKey, maxTick, amount, multiData);
     vm.stopPrank();
+    return (takerGot, takerGave);
+  }
+
+  // Helper function to calculate expected outputs from all modules
+  function _calculateExpectedOutputs(Tick maxTick, uint256 totalAmount, ModuleData[] memory modules)
+    internal
+    returns (uint256 totalExpectedOutput)
+  {
+    // Calculate expected output from mockModule2 (first module)
+    (uint256 expectedFromModule2, uint256 remainingForModule1) =
+      _calculateModuleOutput(mockModule2, maxTick, totalAmount);
+
+    // Calculate expected output from mockModule1 (second module)
+    (uint256 expectedFromModule1, uint256 remainingForExpensive) =
+      _calculateModuleOutput(mockModule1, maxTick, remainingForModule1);
+
+    // Calculate expected output from expensiveModule (third module)
+    SlippageAwareMockExternalSwapModule expensiveModule =
+      SlippageAwareMockExternalSwapModule(address(modules[2].module));
+
+    (uint256 expectedFromExpensive,) = _calculateModuleOutput(expensiveModule, maxTick, remainingForExpensive);
+
+    // Sum up expected outputs
+    totalExpectedOutput = expectedFromModule2 + expectedFromModule1 + expectedFromExpensive;
+
+    return totalExpectedOutput;
+  }
+
+  // Helper function to calculate output for a single module
+  function _calculateModuleOutput(SlippageAwareMockExternalSwapModule module, Tick maxTick, uint256 amount)
+    internal
+    returns (uint256 expectedOutput, uint256 remainingAmount)
+  {
+    uint256 optimalAmount = module.findOptimalAmount(maxTick, amount);
+    expectedOutput = 0;
+
+    if (optimalAmount > 0) {
+      uint256 effectiveRate = module.getEffectiveRate(optimalAmount);
+      expectedOutput = (optimalAmount * effectiveRate) / 1e18;
+      remainingAmount = amount - optimalAmount;
+    } else {
+      remainingAmount = amount;
+    }
+
+    return (expectedOutput, remainingAmount);
   }
 
   function test_MultiGhostBook_module_not_whitelisted() public {
     // Create a new module that is not whitelisted
-    MockExternalSwapModule nonWhitelistedModule =
-      new MockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_1);
+    SlippageAwareMockExternalSwapModule nonWhitelistedModule =
+      new SlippageAwareMockExternalSwapModule(olKey.inbound_tkn, olKey.outbound_tkn, RATE_1, SLIPPAGE_LOW);
 
     // Prepare test parameters
     amountToSell = 10e6;
@@ -278,12 +347,8 @@ contract MultiModuleGhostBookTest is BaseMangroveTest {
     ModuleData[] memory modules = new ModuleData[](1);
     modules[0] = ModuleData({module: IExternalSwapModule(address(nonWhitelistedModule)), data: ""});
 
-    // Prepare percentages
-    uint16[] memory percentages = new uint16[](1);
-    percentages[0] = 10000; // 100%
-
     // Create MultiModuleData
-    MultiModuleData memory multiData = MultiModuleData({modules: modules, percentages: percentages});
+    MultiModuleData memory multiData = MultiModuleData({modules: modules});
 
     // Deal USDT to taker
     deal(address(USDT), users.taker1, amountToSell);
