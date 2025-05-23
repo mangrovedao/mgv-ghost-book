@@ -8,7 +8,6 @@ import {TickMath} from "@uniswap-v3-core/contracts/libraries/TickMath.sol";
 import {IExternalSwapModule} from "../interface/IExternalSwapModule.sol";
 import {GhostBookErrors} from "../libraries/GhostBookErrors.sol";
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin-contracts/utils/math/Math.sol";
 
 /// @title UniswapV3Swapper - A generalized Uniswap V3 integration to perform limit order swaps in any Uniswap V3 implementation.
 /// @notice This contract serves as a plugin for the core contract {GhostBook}
