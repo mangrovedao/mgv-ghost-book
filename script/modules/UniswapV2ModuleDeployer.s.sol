@@ -11,13 +11,13 @@ import {IUniswapV2Router02} from "src/interface/vendors/IUniswapV2Router02.sol";
 
 /// NOTE: Code has been refactored to avoid stack too deep
 contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
-  IERC20 public constant WSEI_SEI = IERC20(0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7);
-  IERC20 public constant USDT_SEI = IERC20(0x9151434b16b9763660705744891fA906F660EcC5);
+  IERC20 public constant WSEI_SEI = IERC20(0xBE574b6219C6D985d08712e90C21A88fd55f1ae8);
+  IERC20 public constant USDC_SEI = IERC20(0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1);
   address public constant DRAGONSWAP_ROUTER = 0xa4cF2F53D1195aDDdE9e4D3aCa54f556895712f2;
   address public constant DRAGONSWAP_FACTORY = 0x71f6b49ae1558357bBb5A6074f1143c46cBcA03d;
 
   // Storage for balance tracking across functions
-  uint256 private initialUsdtBalance;
+  uint256 private initialUSDCBalance;
   uint256 private initialWseiBalance;
 
   function deployModule() public override returns (address module) {
@@ -75,15 +75,15 @@ contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
     console.log("Test address:", testAddress);
     console.log("Module address:", module);
     console.log("WSEI address:", address(WSEI_SEI));
-    console.log("USDT address:", address(USDT_SEI));
+    console.log("USDC address:", address(USDC_SEI));
   }
 
   function _setupTokensAndApprovals() internal {
-    // Deal USDT
-    console.log("Dealing 10,000 USDT to test address");
-    deal(address(USDT_SEI), testAddress, 10_000e6);
-    initialUsdtBalance = USDT_SEI.balanceOf(testAddress);
-    console.log("USDT balance after deal:", initialUsdtBalance);
+    // Deal USDC
+    console.log("Dealing 10,000 USDC to test address");
+    deal(address(USDC_SEI), testAddress, 10_000e6);
+    initialUSDCBalance = USDC_SEI.balanceOf(testAddress);
+    console.log("USDC balance after deal:", initialUSDCBalance);
 
     // Deal WSEI
     console.log("Dealing 10,000 WSEI to test address");
@@ -92,8 +92,8 @@ contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
     console.log("WSEI balance after deal:", initialWseiBalance);
 
     // Approve tokens
-    console.log("Approving USDT for MangroveGhostBook");
-    USDT_SEI.approve(address(mangroveGhostBook), type(uint256).max);
+    console.log("Approving USDC for MangroveGhostBook");
+    USDC_SEI.approve(address(mangroveGhostBook), type(uint256).max);
     console.log("Approving WSEI for MangroveGhostBook");
     WSEI_SEI.approve(address(mangroveGhostBook), type(uint256).max);
   }
@@ -116,7 +116,7 @@ contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
   }
 
   function _setupOLKey() internal pure returns (OLKey memory) {
-    OLKey memory olKey = OLKey({outbound_tkn: address(USDT_SEI), inbound_tkn: address(WSEI_SEI), tickSpacing: 1});
+    OLKey memory olKey = OLKey({outbound_tkn: address(USDC_SEI), inbound_tkn: address(WSEI_SEI), tickSpacing: 1});
 
     console.log("OLKey - outbound_tkn:", olKey.outbound_tkn);
     console.log("OLKey - inbound_tkn:", olKey.inbound_tkn);
@@ -143,7 +143,7 @@ contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
     // Create path for estimation
     address[] memory path = new address[](2);
     path[0] = address(WSEI_SEI);
-    path[1] = address(USDT_SEI);
+    path[1] = address(USDC_SEI);
 
     // Get expected output for a small amount to estimate current price
     uint256[] memory amounts = IUniswapV2Router02(DRAGONSWAP_ROUTER).getAmountsOut(smallAmount, path);
@@ -191,16 +191,16 @@ contract UniswapV2ModuleDeployer is ModuleDeployer, StdCheats {
   }
 
   function _logBalanceChanges() internal {
-    uint256 finalUsdtBalance = USDT_SEI.balanceOf(testAddress);
+    uint256 finalUSDCBalance = USDC_SEI.balanceOf(testAddress);
     uint256 finalWseiBalance = WSEI_SEI.balanceOf(testAddress);
 
-    console.log("USDT balance after swap:", finalUsdtBalance);
+    console.log("USDC balance after swap:", finalUSDCBalance);
     console.log("WSEI balance after swap:", finalWseiBalance);
 
-    int256 usdtChange = int256(finalUsdtBalance) - int256(initialUsdtBalance);
+    int256 USDCChange = int256(finalUSDCBalance) - int256(initialUSDCBalance);
     int256 wseiChange = int256(finalWseiBalance) - int256(initialWseiBalance);
 
-    console.log("USDT change:", usdtChange);
+    console.log("USDC change:", USDCChange);
     console.log("WSEI change:", wseiChange);
   }
 
