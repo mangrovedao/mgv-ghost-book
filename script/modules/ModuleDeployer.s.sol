@@ -5,7 +5,7 @@ import {MangroveGhostBookDeployer, MangroveGhostBook, console} from "../Mangrove
 
 abstract contract ModuleDeployer is MangroveGhostBookDeployer {
   address public module;
-  address public testAddress;
+  address internal testAddress;
 
   error ERROR_DEPLOYMENT_ADDRESS_0();
 

@@ -18,6 +18,10 @@ contract BaseTest is Test {
   IERC20 public constant DAI_BASE = IERC20(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb);
   IERC20 public constant USDT_BASE = IERC20(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA);
 
+  // Sei token addresses
+  IERC20 public constant WETH_SEI = IERC20(0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7);
+  IERC20 public constant USDT_SEI = IERC20(0x9151434b16b9763660705744891fA906F660EcC5);
+
   // Current chain tokens
   IERC20 public WETH;
   IERC20 public USDC;
@@ -28,7 +32,8 @@ contract BaseTest is Test {
 
   enum ForkChain {
     BASE,
-    ARBITRUM
+    ARBITRUM,
+    SEI
   }
 
   uint256 public chainFork;
@@ -40,6 +45,9 @@ contract BaseTest is Test {
     }
     if (chain == ForkChain.ARBITRUM) {
       setArbitrumFork();
+    }
+    if (chain == ForkChain.SEI) {
+      setSeiFork();
     }
   }
 
@@ -71,6 +79,21 @@ contract BaseTest is Test {
     WeETH = IERC20(address(0)); // Not available on Base
     ARB = IERC20(address(0)); // Not available on Base
     DAI = DAI_BASE;
+  }
+
+  function setSeiFork() internal {
+    string memory rpc = vm.envString("RPC_SEI");
+    uint256 forkBlock = vm.envUint("FORK_BLOCK_SEI");
+    chainFork = vm.createSelectFork(rpc);
+    vm.rollFork(forkBlock);
+
+    // Set token addresses for Sei
+    WETH = WETH_SEI;
+    USDC = IERC20(address(0));
+    USDT = USDT_SEI;
+    WeETH = IERC20(address(0));
+    ARB = IERC20(address(0));
+    DAI = IERC20(address(0));
   }
 
   function dealTokens(address user, IERC20[] memory tokens, uint256 amount) internal {
