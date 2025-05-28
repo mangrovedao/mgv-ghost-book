@@ -94,10 +94,10 @@ contract MangroveGhostBookStreamSplitTest is BaseMangroveTest, BaseSplitStreamSw
     vm.startPrank(users.taker1);
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
-    assertLe(takerGave, amountToSell, "Should only partially fill the order");
+    assertLe(takerGave, amountToSell);
     if (takerGot > 0 && takerGave > 0) {
       Tick executedTick = TickLib.tickFromVolumes(takerGave, takerGot);
-      assertLe(Tick.unwrap(executedTick), Tick.unwrap(maxTick), "Executed price should respect max tick");
+      assertLe(Tick.unwrap(executedTick), Tick.unwrap(maxTick));
     }
   }
 
@@ -119,7 +119,7 @@ contract MangroveGhostBookStreamSplitTest is BaseMangroveTest, BaseSplitStreamSw
     vm.startPrank(users.taker1);
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
-    assertEq(takerGave, amountToSell, "Should use entire sell amount");
-    assertGt(takerGot, 0, "Should receive tokens");
+    assertEq(takerGave, amountToSell);
+    assertGt(takerGot, 0);
   }
 }

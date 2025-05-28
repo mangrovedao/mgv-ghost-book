@@ -72,13 +72,15 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
     Tick maxTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
 
+    // Make market
+    setupMarket(ol);
+
     vm.startPrank(users.taker1);
-    // TODO: should revert?
-    vm.expectRevert("mgv/inactive");
+
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
-    // assertGt(takerGot, 0);
-    // assertGt(takerGave, 0);
+    assertGt(takerGot, 0);
+    assertEq(takerGave, amountToSell);
   }
 
   function test_GhostBook_price_limit_respected() public {
@@ -99,7 +101,6 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     setupMarket(ol);
     // Add very few liquidity
     users.maker1.newOfferByTick(mgvTick, 1e6, 2 ** 18);
-    Tick mgvTick2 = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
     users.maker2.newOfferByTick(mgvTick, 1e6, 2 ** 18);
 
     vm.startPrank(users.taker1);
@@ -107,6 +108,7 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
 
     // Should execute partial fill
     assertLe(takerGave, amountToSell);
+    assertGt(takerGot, 0);
   }
 
   function test_GhostBook_fees_handled_correctly() public {
@@ -143,27 +145,31 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     }
   }
 
-  // function test_GhostBook_receive_penalty() public {
-  //   // Test different fee tiers
-  //   uint256 amountToSell = 1_0000 ether;
+  function test_GhostBook_receive_penalty() public {
+    // Test different fee tiers
+    uint256 amountToSell = 1_0000 ether;
 
-  //   ModuleData memory data =
-  //     ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
+    ModuleData memory data =
+      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(UNISWAP_V3_ROUTER_ARBITRUM, 500)});
 
-  //   address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
+    address poolAddress = IUniswapV3Factory(UNISWAP_V3_FACTORY_ARBITRUM).getPool(address(WETH), address(USDC), 500);
 
-  //   (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-  //   Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+    (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
+    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
 
-  //   setupMarket(ol);
-  //   users.maker1.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
-  //   users.maker2.newOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+    setupMarket(ol);
+    users.maker1.newFraudulentOfferByTick(mgvTick, 500_000e6, 2 ** 18);
+    users.maker2.newFraudulentOfferByTick(mgvTick, 500_000e6, 2 ** 18);
 
-  //   vm.prank(users.taker1);
-  //   (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
-  //   assertGt(bounty, 0);
-  //   assertEq(address(ghostBook).balance, 0);
-  // }
+    uint256 takerBalanceBefore = address(users.taker1).balance;
+
+    vm.prank(users.taker1);
+    (,, uint256 bounty,) = ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
+
+    assertGt(bounty, 0);
+    assertEq(address(ghostBook).balance, 0);
+    assertEq(address(users.taker1).balance, takerBalanceBefore + bounty);
+  }
 
   function test_GhostBook_token_rescue() public {
     // Test the rescue funds functionality
@@ -209,7 +215,7 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     });
 
     (, int24 spotTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 100)));
+    Tick mgvTick = Tick.wrap(int256(_convertToMgvTick(ol.inbound_tkn, ol.outbound_tkn, spotTick - 10)));
 
     // Make market
     setupMarket(ol);
@@ -220,5 +226,10 @@ contract MangroveGhostBookUniswapV3Test is BaseMangroveTest, BaseUniswapV3Swappe
     // Create order by tick consuming both the orderbok and external swapper
     (uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid) =
       ghostBook.marketOrderByTick(ol, mgvTick, amountToSell, data);
+
+    assertGt(takerGot, 0);
+    assertGt(takerGave, 0);
+    assertEq(bounty, 0);
+    assertGt(feePaid, 0);
   }
 }
