@@ -82,9 +82,6 @@ contract MangroveGhostBookUniswapV2Test is BaseMangroveTest, BaseUniswapV2Swappe
     // Set max tick with some buffer to ensure execution
     Tick maxTick = Tick.wrap(Tick.unwrap(spotTick) + 2000);
 
-    console.log("Spot tick:", Tick.unwrap(spotTick));
-    console.log("Max tick:", Tick.unwrap(maxTick));
-
     // Create empty market to make sure it's active
     setupMarket(ol);
 
@@ -92,8 +89,8 @@ contract MangroveGhostBookUniswapV2Test is BaseMangroveTest, BaseUniswapV2Swappe
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
     // Verify some tokens were swapped
-    assertGt(takerGot, 0, "Should have received output tokens");
-    assertGt(takerGave, 0, "Should have spent input tokens");
+    assertGt(takerGot, 0);
+    assertGt(takerGave, 0);
   }
 
   function test_GhostBook_combined_liquidity_uniswapv2() public {
@@ -127,7 +124,7 @@ contract MangroveGhostBookUniswapV2Test is BaseMangroveTest, BaseUniswapV2Swappe
     uint256 takerWethAfter = WETH.balanceOf(users.taker1);
     uint256 takerUSDTAfter = USDT.balanceOf(users.taker1);
 
-    assertEq(takerWethBefore - takerWethAfter, takerGave, "WETH spent should match takerGave");
-    assertEq(takerUSDTAfter - takerUSDTBefore, takerGot, "USDT received should match takerGot");
+    assertEq(takerWethBefore - takerWethAfter, takerGave);
+    assertEq(takerUSDTAfter - takerUSDTBefore, takerGot);
   }
 }

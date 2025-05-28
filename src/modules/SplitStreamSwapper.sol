@@ -62,9 +62,7 @@ contract SplitStreamSwapper is UniswapV3Swapper {
     view
     returns (uint160 sqrtPriceLimitX96)
   {
-    int24 mgvTick = int24(Tick.unwrap(maxTick));
-    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
-    uniswapTick = _adjustTickForFees(uniswapTick, fee);
+    int24 uniswapTick = _adjustTickForUniswap(olKey.inbound_tkn, olKey.outbound_tkn, maxTick, fee);
 
     // Validate price limit is within bounds
     return TickMath.getSqrtRatioAtTick(uniswapTick);

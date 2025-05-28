@@ -16,9 +16,9 @@ contract UniswapV3Swapper is IExternalSwapModule {
 
   error RouterAlreadySet();
   error Unauthorized();
+  error DivFailed();
 
   address public immutable ghostBook;
-  int256 constant FEE_PRECISION = 1e6;
 
   constructor(address _ghostBook) {
     ghostBook = _ghostBook;
@@ -42,9 +42,8 @@ contract UniswapV3Swapper is IExternalSwapModule {
 
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
 
-    int24 mgvTick = int24(Tick.unwrap(maxTick));
-    int24 uniswapTick = _convertToUniswapTick(olKey.inbound_tkn, olKey.outbound_tkn, mgvTick);
-    uniswapTick = _adjustTickForFees(uniswapTick, fee);
+    // Adjust tick after fees for Uniswap 
+    int24 uniswapTick = _adjustTickForUniswap(olKey.inbound_tkn, olKey.outbound_tkn, maxTick, fee);
 
     // Validate price limit is within bounds
     uint160 sqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(uniswapTick);
@@ -77,21 +76,33 @@ contract UniswapV3Swapper is IExternalSwapModule {
   }
 
   /// @dev Helper function to convert from Mangrove tick to Uniswap tick as prices are represented differently
-  function _convertToUniswapTick(address inboundToken, address outboundToken, int24 mgvTick)
+  /// @param inboundToken The inbound token address
+  /// @param outboundToken The outbound token address
+  /// @param maxTick The maximum tick
+  /// @param feePips The fee pips
+  /// @return The adjusted tick
+  function _adjustTickForUniswap(address inboundToken, address outboundToken, Tick maxTick, uint24 feePips)
     internal
     pure
     returns (int24)
   {
-    // Compare addresses to determine token ordering without storage reads
-    // If inbound token has lower address, it's token0 in Uniswap
-    return inboundToken < outboundToken ? -mgvTick : mgvTick;
+    int24 mgvTick = int24(Tick.unwrap(maxTick)) - int24(uint24(divUp(uint256(feePips), 100)));
+    int24 uniTick = inboundToken < outboundToken ? -mgvTick : mgvTick;
+
+    return uniTick;
   }
 
-  function _adjustTickForFees(int24 tick, uint24 fee) internal pure returns (int24) {
-    // For fee of 500 (0.05%), multiplier is 0.995
-    // We want a lower tick that after fees matches our target
-    int256 multiplier = int256(uint256(FEE_PRECISION) - uint256(fee));
-    // Multiply tick by (1 - fee) to get a lower tick
-    return int24((int256(tick) * multiplier) / FEE_PRECISION);
+  /// @dev source: https://github.com/Vectorized/solady/blob/main/src/utils/FixedPointMathLib.sol
+  /// @dev Returns `ceil(x / d)`.
+  /// Reverts if `d` is zero.
+  function divUp(uint256 x, uint256 d) internal pure returns (uint256 z) {
+    /// @solidity memory-safe-assembly
+    assembly {
+      if iszero(d) {
+        mstore(0x00, 0x65244e4e) // `DivFailed()`.
+        revert(0x1c, 0x04)
+      }
+      z := add(iszero(iszero(mod(x, d))), div(x, d))
+    }
   }
 }

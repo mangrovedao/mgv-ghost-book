@@ -320,6 +320,19 @@ contract SimpleTestMaker is TrivialTestMaker {
     return newOfferByTick(olKey, tick, gives, gasreq, gasprice);
   }
 
+  function newFraudulentOfferByTick(Tick tick, uint256 gives, uint256 gasreq) public returns (uint256) {
+    // Get outbound token from olKey
+    IERC20 outboundToken = IERC20(olKey.outbound_tkn);
+
+    // Create offer first
+    uint256 offerId = newOfferByTick(tick, gives, gasreq);
+
+    // Reduce approval to Mangrove to cause transfer failure when taken
+    outboundToken.approve(address(mgv), 0);
+
+    return offerId;
+  }
+
   function newOfferByTick(OLKey memory _olKey, Tick tick, uint256 gives, uint256 gasreq) public returns (uint256) {
     return newOfferByTick(_olKey, tick, gives, gasreq, 0);
   }

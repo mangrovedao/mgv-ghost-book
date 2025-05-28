@@ -13,20 +13,6 @@ contract SplitStreamSwapperWrapper is SplitStreamSwapper {
 
   constructor(address _ghostBook) SplitStreamSwapper(_ghostBook) {}
 
-  /// @notice Expose the internal _convertToUniswapTick function for testing
-  function convertToUniswapTick(address inboundToken, address outboundToken, int24 mgvTick)
-    external
-    pure
-    returns (int24)
-  {
-    return _convertToUniswapTick(inboundToken, outboundToken, mgvTick);
-  }
-
-  /// @notice Expose the internal _adjustTickForFees function for testing
-  function adjustTickForFees(int24 tick, uint24 fee) external pure returns (int24) {
-    return _adjustTickForFees(tick, fee);
-  }
-
   /// @notice Allow the test contract to receive tokens
   function transferToken(address token, address to, uint256 amount) external {
     IERC20(token).safeTransfer(to, amount);

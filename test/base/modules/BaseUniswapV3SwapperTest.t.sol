@@ -17,8 +17,8 @@ abstract contract BaseUniswapV3SwapperTest is BaseTest {
     return swapper;
   }
 
-  // Helper to convert from SplitStream tick to Mangrove tick
-  function _convertToMgvTick(address inbound, address outbound, int24 splitstreamTick) internal pure returns (int24) {
-    return inbound < outbound ? -splitstreamTick : splitstreamTick;
+  // Helper to convert from Uniswap tick to Mangrove tick
+  function _convertToMgvTick(address inbound, address outbound, int24 uniswapTick) internal pure returns (int24) {
+    return inbound < outbound ? -uniswapTick : uniswapTick;
   }
 }

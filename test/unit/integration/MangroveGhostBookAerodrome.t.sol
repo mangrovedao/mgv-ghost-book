@@ -88,9 +88,6 @@ contract MangroveGhostBookAerodromeTest is BaseMangroveTest, BaseAerodromeSwappe
     // Set max tick with some buffer to ensure execution
     Tick maxTick = Tick.wrap(Tick.unwrap(spotTick) + 2000);
 
-    console.log("Spot tick:", Tick.unwrap(spotTick));
-    console.log("Max tick:", Tick.unwrap(maxTick));
-
     // Create empty market to make sure it's active
     setupMarket(ol);
 
@@ -98,8 +95,8 @@ contract MangroveGhostBookAerodromeTest is BaseMangroveTest, BaseAerodromeSwappe
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
     // Verify some tokens were swapped
-    assertGt(takerGot, 0, "Should have received output tokens");
-    assertGt(takerGave, 0, "Should have spent input tokens");
+    assertGt(takerGot, 0);
+    assertGt(takerGave, 0);
   }
 
   function test_GhostBook_price_limit_respected_aerodrome() public {
@@ -124,12 +121,12 @@ contract MangroveGhostBookAerodromeTest is BaseMangroveTest, BaseAerodromeSwappe
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, spotTick, amountToSell, data);
 
     // Should execute partial fill or small amount on Aerodrome
-    assertLe(takerGave, amountToSell, "Should only partially fill the order");
+    assertLe(takerGave, amountToSell);
 
     // If some tokens were traded, verify price was respected
     if (takerGot > 0 && takerGave > 0) {
       Tick executedTick = TickLib.tickFromVolumes(takerGave, takerGot);
-      assertLe(Tick.unwrap(executedTick), Tick.unwrap(spotTick), "Executed price should respect max tick");
+      assertLe(Tick.unwrap(executedTick), Tick.unwrap(spotTick));
     }
   }
 
@@ -166,12 +163,12 @@ contract MangroveGhostBookAerodromeTest is BaseMangroveTest, BaseAerodromeSwappe
     uint256 takerWethAfter = WETH.balanceOf(users.taker1);
     uint256 takerUsdcAfter = USDC.balanceOf(users.taker1);
 
-    assertEq(takerWethBefore - takerWethAfter, takerGave, "WETH spent should match takerGave");
-    assertEq(takerUsdcAfter - takerUsdcBefore, takerGot, "USDC received should match takerGot");
+    assertEq(takerWethBefore - takerWethAfter, takerGave);
+    assertEq(takerUsdcAfter - takerUsdcBefore, takerGot);
 
     // Should use all offered amount
-    assertEq(takerGave, amountToSell, "Should use entire sell amount");
-    assertGt(takerGot, 0, "Should receive tokens");
+    assertEq(takerGave, amountToSell);
+    assertGt(takerGot, 0);
   }
 
   function test_GhostBook_module_whitelist_aerodrome() public {
