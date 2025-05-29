@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/src/Script.sol";
-import {MangroveGhostBook} from "../src/MangroveGhostBook.sol";
+import {MangroveGhostBook} from "src/MangroveGhostBook.sol";
 
 contract MangroveGhostBookDeployer is Script {
   MangroveGhostBook public mangroveGhostBook;

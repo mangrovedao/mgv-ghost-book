@@ -42,7 +42,7 @@ contract UniswapV3Swapper is IExternalSwapModule {
 
     IERC20(olKey.inbound_tkn).forceApprove(address(router), amountToSell);
 
-    // Adjust tick after fees for Uniswap 
+    // Adjust tick after fees for Uniswap
     int24 uniswapTick = _adjustTickForUniswap(olKey.inbound_tkn, olKey.outbound_tkn, maxTick, fee);
 
     // Validate price limit is within bounds
