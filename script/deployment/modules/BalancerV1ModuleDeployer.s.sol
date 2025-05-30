@@ -2,31 +2,29 @@
 pragma solidity ^0.8.20;
 
 import {ModuleDeployer, console} from "./ModuleDeployer.s.sol";
-import {AerodromeSwapper, OLKey, Tick, TickLib} from "../../src/modules/AerodromeSwapper.sol";
+import {BalancerV1Swapper, OLKey, Tick, TickLib} from "src/modules/BalancerV1Swapper.sol";
 import {IERC20} from "@openzeppelin-contracts/interfaces/IERC20.sol";
 import {IExternalSwapModule} from "src/interface/IExternalSwapModule.sol";
 import {ModuleData} from "src/MangroveGhostBook.sol";
 import {StdCheats} from "forge-std/src/Test.sol";
-import {IAerodromeRouter} from "src/interface/vendors/IAerodromeRouter.sol";
+import {ISwapOperations} from "src/interface/vendors/ISwapOperations.sol";
 
 /// NOTE: Code has been refactored to avoid stack too deep
-contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
-  IERC20 public constant USDC_BASE = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
-  IERC20 public constant USDT_BASE = IERC20(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA);
-  bool constant IS_STABLE_POOL = true;
-  address public constant AERODROME_ROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
-  address public constant AERODROME_FACTORY = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
+contract BalancerV1ModuleDeployer is ModuleDeployer, StdCheats {
+  IERC20 public constant jUSDv1_SEI = IERC20(0xBE574b6219C6D985d08712e90C21A88fd55f1ae8);
+  IERC20 public constant jTSLAv1_SEI = IERC20(0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1);
+  address public constant SWAP_OPERATIONS_JELLYSWAP = 0x64Da11e4436F107A2bFc4f19505c277728C0F3F0;
 
   // Storage for balance tracking across functions
-  uint256 private initialUsdtBalance;
-  uint256 private initialUsdcBalance;
+  uint256 private initialJTSLABalance;
+  uint256 private initialJUSDBalance;
 
   function deployModule() public override returns (address module) {
     _logDeploymentStart();
 
     vm.broadcast();
     console.log("Broadcasting deployment transaction...");
-    module = address(new AerodromeSwapper(address(mangroveGhostBook), AERODROME_ROUTER));
+    module = address(new BalancerV1Swapper(address(mangroveGhostBook)));
 
     _logDeploymentSuccess(module);
     return module;
@@ -34,15 +32,13 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
 
   function _logDeploymentStart() internal {
     console.log("---------------------------------------------");
-    console.log("Starting AerodromeSwapper Module Deployment");
+    console.log("Starting BalancerV1Swapper Module Deployment");
     console.log("---------------------------------------------");
     console.log("MangroveGhostBook address:", address(mangroveGhostBook));
-    console.log("Aerodrome Router address:", AERODROME_ROUTER);
-    console.log("Aerodrome Factory address:", AERODROME_FACTORY);
   }
 
   function _logDeploymentSuccess(address module) internal {
-    console.log("AerodromeSwapper successfully deployed at:", module);
+    console.log("BalancerV1Swapper successfully deployed at:", module);
     console.log("Deployment gas used:", gasleft());
     console.log("---------------------------------------------");
   }
@@ -73,32 +69,32 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
 
   function _logTestStart(address module) internal {
     console.log("---------------------------------------------");
-    console.log("Starting AerodromeSwapper Live Test");
+    console.log("Starting BalancerV1Swapper Live Test");
     console.log("---------------------------------------------");
     console.log("Test address:", testAddress);
     console.log("Module address:", module);
-    console.log("USDC address:", address(USDC_BASE));
-    console.log("USDT address:", address(USDT_BASE));
+    console.log("jUSD address:", address(jUSDv1_SEI));
+    console.log("jTSLA address:", address(jTSLAv1_SEI));
   }
 
   function _setupTokensAndApprovals() internal {
-    // Deal USDT
-    console.log("Dealing 10,000 USDT to test address");
-    deal(address(USDT_BASE), testAddress, 10_000e6);
-    initialUsdtBalance = USDT_BASE.balanceOf(testAddress);
-    console.log("USDT balance after deal:", initialUsdtBalance);
+    // Deal jTSLA
+    console.log("Dealing 10,000 jTSLA to test address");
+    deal(address(jTSLAv1_SEI), testAddress, 10_000e6);
+    initialJTSLABalance = jTSLAv1_SEI.balanceOf(testAddress);
+    console.log("jTSLA balance after deal:", initialJTSLABalance);
 
-    // Deal USDC
-    console.log("Dealing 10,000 USDC to test address");
-    deal(address(USDC_BASE), testAddress, 10_000e6);
-    initialUsdcBalance = USDC_BASE.balanceOf(testAddress);
-    console.log("USDC balance after deal:", initialUsdcBalance);
+    // Deal jUSD
+    console.log("Dealing 10,000 jUSD to test address");
+    deal(address(jUSDv1_SEI), testAddress, 10_000e6);
+    initialJUSDBalance = jUSDv1_SEI.balanceOf(testAddress);
+    console.log("jUSD balance after deal:", initialJUSDBalance);
 
     // Approve tokens
-    console.log("Approving USDT for MangroveGhostBook");
-    USDT_BASE.approve(address(mangroveGhostBook), type(uint256).max);
-    console.log("Approving USDC for MangroveGhostBook");
-    USDC_BASE.approve(address(mangroveGhostBook), type(uint256).max);
+    console.log("Approving jTSLA for MangroveGhostBook");
+    jTSLAv1_SEI.approve(address(mangroveGhostBook), type(uint256).max);
+    console.log("Approving jUSD for MangroveGhostBook");
+    jUSDv1_SEI.approve(address(mangroveGhostBook), type(uint256).max);
   }
 
   function _executeMarketOrder(address module) internal returns (bool) {
@@ -119,7 +115,7 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
   }
 
   function _setupOLKey() internal pure returns (OLKey memory) {
-    OLKey memory olKey = OLKey({outbound_tkn: address(USDT_BASE), inbound_tkn: address(USDC_BASE), tickSpacing: 1});
+    OLKey memory olKey = OLKey({outbound_tkn: address(jTSLAv1_SEI), inbound_tkn: address(jUSDv1_SEI), tickSpacing: 1});
 
     console.log("OLKey - outbound_tkn:", olKey.outbound_tkn);
     console.log("OLKey - inbound_tkn:", olKey.inbound_tkn);
@@ -132,23 +128,28 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
     uint256 deadline = block.timestamp + 3600;
     console.log("Order deadline:", deadline);
 
-    ModuleData memory moduleData = ModuleData({
-      module: IExternalSwapModule(address(module)),
-      data: abi.encode(IS_STABLE_POOL, AERODROME_FACTORY, deadline)
-    });
+    ModuleData memory moduleData =
+    ModuleData({module: IExternalSwapModule(address(module)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
 
     console.log("ModuleData encoded successfully");
     return moduleData;
   }
 
   function _calculateTicks() internal returns (Tick, Tick) {
-    // Get current reserves from Aerodrome pool
-    (uint256 reserveUsdt, uint256 reserveUSDC) = IAerodromeRouter(AERODROME_ROUTER).getReserves(
-      address(USDC_BASE), address(USDT_BASE), IS_STABLE_POOL, AERODROME_FACTORY
-    );
+    // Use a small amount to estimate the current price
+    uint256 smallAmount = 1 ether;
 
-    // Calculate the current tick from reserves
-    Tick spotTick = _calculateTickFromReserves(reserveUsdt, reserveUSDC);
+    // Create path for estimation
+    address[] memory path = new address[](2);
+    path[0] = address(jUSDv1_SEI);
+    path[1] = address(jTSLAv1_SEI);
+
+    // Get spot price from pool
+    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(smallAmount, path);
+    uint256 spotPrice = amounts[1].amount;
+
+    // Calculate the current tick and add a large buffer
+    Tick spotTick = TickLib.tickFromVolumes(smallAmount, spotPrice);
 
     // Add buffer to ensure trade goes through
     Tick maxTick = Tick.wrap(Tick.unwrap(spotTick) + 2000);
@@ -160,18 +161,15 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
     console.log("Current spot tick:", Tick.unwrap(spotTick));
     console.log("Max tick for order:", Tick.unwrap(maxTick));
     console.log("Order amount: 1,000,000 (1e6)");
-    console.log("Is stable pool:", IS_STABLE_POOL);
   }
 
   function _performMarketOrder(OLKey memory olKey, Tick maxTick, ModuleData memory moduleData) internal returns (bool) {
     console.log("Executing test market order...");
-
     try mangroveGhostBook.marketOrderByTick(olKey, maxTick, 1e6, moduleData) returns (
       uint256 takerGot, uint256 takerGave, uint256 bounty, uint256 feePaid
     ) {
       _logOrderSuccess(takerGot, takerGave, bounty, feePaid);
       _logBalanceChanges();
-
       return takerGot > 0 && takerGave > 0;
     } catch (bytes memory reason) {
       _logOrderFailure(reason);
@@ -193,17 +191,17 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
   }
 
   function _logBalanceChanges() internal {
-    uint256 finalUsdtBalance = USDT_BASE.balanceOf(testAddress);
-    uint256 finalUsdcBalance = USDC_BASE.balanceOf(testAddress);
+    uint256 finaljTSLABalance = jTSLAv1_SEI.balanceOf(testAddress);
+    uint256 finaljUSDBalance = jUSDv1_SEI.balanceOf(testAddress);
 
-    console.log("USDT balance after swap:", finalUsdtBalance);
-    console.log("USDC balance after swap:", finalUsdcBalance);
+    console.log("jTSLA balance after swap:", finaljTSLABalance);
+    console.log("jUSD balance after swap:", finaljUSDBalance);
 
-    int256 usdtChange = int256(finalUsdtBalance) - int256(initialUsdtBalance);
-    int256 usdcChange = int256(finalUsdcBalance) - int256(initialUsdcBalance);
+    int256 jTSLAChange = int256(finaljTSLABalance) - int256(initialJTSLABalance);
+    int256 jjTSLAhange = int256(finaljUSDBalance) - int256(initialJUSDBalance);
 
-    console.log("USDT change:", usdtChange);
-    console.log("USDC change:", usdcChange);
+    console.log("jTSLA change:", jTSLAChange);
+    console.log("jUSD change:", jjTSLAhange);
   }
 
   function _logTestSuccess() internal {
@@ -220,7 +218,7 @@ contract AerodromeModuleDeployer is ModuleDeployer, StdCheats {
 
   // Helper to calculate a price tick from pool reserves
   function _calculateTickFromReserves(uint256 reserveIn, uint256 reserveOut) internal pure returns (Tick) {
-    // For Aerodrome/Uniswap V2 style pools, price is reserveOut/reserveIn
+    // For BalancerV1 style pools, price is reserveOut/reserveIn
     return TickLib.tickFromVolumes(reserveIn, reserveOut);
   }
 }

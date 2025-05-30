@@ -21,6 +21,8 @@ contract BaseTest is Test {
   // Sei token addresses
   IERC20 public constant WETH_SEI = IERC20(0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7);
   IERC20 public constant USDT_SEI = IERC20(0x9151434b16b9763660705744891fA906F660EcC5);
+  IERC20 public constant jUSDv1_SEI = IERC20(0x4c6Dd2CA85Ca55C4607Cd66A7EBdD2C9b58112Cf);
+  IERC20 public constant jTSLAv1_SEI = IERC20(0x412621a1ff7a11A794DE81085Dc3C16777a664e2);
 
   // Current chain tokens
   IERC20 public WETH;

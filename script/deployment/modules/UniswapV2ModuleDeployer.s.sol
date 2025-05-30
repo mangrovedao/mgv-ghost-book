@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ModuleDeployer, console} from "./ModuleDeployer.s.sol";
-import {UniswapV2Swapper, OLKey, Tick, TickLib} from "../../src/modules/UniswapV2Swapper.sol";
+import {UniswapV2Swapper, OLKey, Tick, TickLib} from "src/modules/UniswapV2Swapper.sol";
 import {IERC20} from "@openzeppelin-contracts/interfaces/IERC20.sol";
 import {IExternalSwapModule} from "src/interface/IExternalSwapModule.sol";
 import {ModuleData} from "src/MangroveGhostBook.sol";
