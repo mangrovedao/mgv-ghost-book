@@ -9,7 +9,7 @@ import {IERC20} from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 abstract contract BaseBalancerV1SwapperTest is BaseTest {
   BalancerV1SwapperWrapper public swapper;
 
-  address public constant SWAP_OPERATIONS = 0x64Da11e4436F107A2bFc4f19505c277728C0F3F0; // Sei
+  address public constant SWAP_OPERATIONS_JELLYSWAP = 0x64Da11e4436F107A2bFc4f19505c277728C0F3F0; // Sei
 
   function setUp() public virtual override {
     chain = ForkChain.SEI;

@@ -32,7 +32,7 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     path[1] = address(jTSLAv1_SEI);
 
     // Get the current spot price from Balancer pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS).getAmountsOut(amountToSell, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
     Tick realSpotTick = TickLib.tickFromVolumes(amountToSell, amounts[1].amount);
 
     // Then set max tick based on this real execution price
@@ -42,7 +42,7 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     uint256 tokenOutBalanceBefore = IERC20(jTSLAv1_SEI).balanceOf(address(ghostBook));
 
     vm.prank(ghostBook);
-    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SWAP_OPERATIONS, block.timestamp));
+    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SWAP_OPERATIONS_JELLYSWAP, block.timestamp));
 
     uint256 tokenInBalanceAfter = IERC20(jUSDv1_SEI).balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = IERC20(jTSLAv1_SEI).balanceOf(address(ghostBook));
@@ -69,7 +69,7 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     path[1] = address(jTSLAv1_SEI);
 
     // Get spot price from pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS).getAmountsOut(amountToSell, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
     uint256 spotPrice = amounts[1].amount;
 
     // Calculate the current tick and add a large buffer
@@ -80,7 +80,7 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     uint256 tokenOutBalanceBefore = IERC20(jTSLAv1_SEI).balanceOf(address(ghostBook));
 
     vm.prank(ghostBook);
-    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SWAP_OPERATIONS, block.timestamp));
+    swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(SWAP_OPERATIONS_JELLYSWAP, block.timestamp));
 
     uint256 tokenInBalanceAfter = IERC20(jUSDv1_SEI).balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = IERC20(jTSLAv1_SEI).balanceOf(address(ghostBook));

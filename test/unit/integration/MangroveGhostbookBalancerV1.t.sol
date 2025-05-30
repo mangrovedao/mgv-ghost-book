@@ -46,7 +46,7 @@ contract MangroveGhostBookBalancerV1Test is BaseMangroveTest, BaseBalancerV1Swap
     path[1] = outToken;
 
     // Get spot price from pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS).getAmountsOut(amount, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amount, path);
     uint256 amountOut = amounts[1].amount;
 
     // Calculate the current tick and add a large buffer
@@ -80,7 +80,7 @@ contract MangroveGhostBookBalancerV1Test is BaseMangroveTest, BaseBalancerV1Swap
     // Create valid module data
     uint256 deadline = block.timestamp + 3600;
     ModuleData memory data =
-      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(SWAP_OPERATIONS, deadline)});
+      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
 
     // Get current price from BalancerV1
     Tick spotTick = _estimateBalancerV1Tick(ol.inbound_tkn, ol.outbound_tkn, amountToSell);
@@ -104,7 +104,7 @@ contract MangroveGhostBookBalancerV1Test is BaseMangroveTest, BaseBalancerV1Swap
 
     uint256 deadline = block.timestamp + 3600;
     ModuleData memory data =
-      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(SWAP_OPERATIONS, deadline)});
+      ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
 
     // Get current price from BalancerV1
     Tick spotTick = _estimateBalancerV1Tick(ol.inbound_tkn, ol.outbound_tkn,amountToSell);
