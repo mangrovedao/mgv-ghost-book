@@ -19,13 +19,17 @@ contract BaseTest is Test {
   IERC20 public constant USDT_BASE = IERC20(0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA);
 
   // Sei token addresses
-  IERC20 public constant WETH_SEI = IERC20(0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7);
+  IERC20 public constant WETH_SEI = IERC20(0xBE574b6219C6D985d08712e90C21A88fd55f1ae8);
+  IERC20 public constant WSEI_SEI = IERC20(0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7);
+  IERC20 public constant STETH_SEI = IERC20(0x160345fC359604fC6e70E3c5fAcbdE5F7A9342d8);
   IERC20 public constant USDT_SEI = IERC20(0x9151434b16b9763660705744891fA906F660EcC5);
   IERC20 public constant jUSDv1_SEI = IERC20(0x4c6Dd2CA85Ca55C4607Cd66A7EBdD2C9b58112Cf);
   IERC20 public constant jTSLAv1_SEI = IERC20(0x412621a1ff7a11A794DE81085Dc3C16777a664e2);
 
   // Current chain tokens
   IERC20 public WETH;
+  IERC20 public WSEI;
+  IERC20 public STETH;
   IERC20 public USDC;
   IERC20 public USDT;
   IERC20 public WeETH;
@@ -66,6 +70,7 @@ contract BaseTest is Test {
     WeETH = WeETH_ARBITRUM;
     ARB = ARB_ARBITRUM;
     DAI = DAI_ARBITRUM;
+    STETH = IERC20(address(0));
   }
 
   function setBaseFork() internal {
@@ -78,8 +83,6 @@ contract BaseTest is Test {
     WETH = WETH_BASE;
     USDC = USDC_BASE;
     USDT = USDT_BASE; // Not available on Base
-    WeETH = IERC20(address(0)); // Not available on Base
-    ARB = IERC20(address(0)); // Not available on Base
     DAI = DAI_BASE;
   }
 
@@ -91,11 +94,9 @@ contract BaseTest is Test {
 
     // Set token addresses for Sei
     WETH = WETH_SEI;
-    USDC = IERC20(address(0));
     USDT = USDT_SEI;
-    WeETH = IERC20(address(0));
-    ARB = IERC20(address(0));
-    DAI = IERC20(address(0));
+    STETH = STETH_SEI;
+    WSEI = WSEI_SEI;
   }
 
   function dealTokens(address user, IERC20[] memory tokens, uint256 amount) internal {

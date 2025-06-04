@@ -46,7 +46,8 @@ contract MangroveGhostBookBalancerV1Test is BaseMangroveTest, BaseBalancerV1Swap
     path[1] = outToken;
 
     // Get spot price from pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amount, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) =
+      ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amount, path);
     uint256 amountOut = amounts[1].amount;
 
     // Calculate the current tick and add a large buffer
@@ -107,7 +108,7 @@ contract MangroveGhostBookBalancerV1Test is BaseMangroveTest, BaseBalancerV1Swap
       ModuleData({module: IExternalSwapModule(address(swapper)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
 
     // Get current price from BalancerV1
-    Tick spotTick = _estimateBalancerV1Tick(ol.inbound_tkn, ol.outbound_tkn,amountToSell);
+    Tick spotTick = _estimateBalancerV1Tick(ol.inbound_tkn, ol.outbound_tkn, amountToSell);
     // Set max tick with moderate buffer
     Tick maxTick = Tick.wrap(Tick.unwrap(spotTick) + 500);
 
