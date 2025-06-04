@@ -129,7 +129,7 @@ contract BalancerV1ModuleDeployer is ModuleDeployer, StdCheats {
     console.log("Order deadline:", deadline);
 
     ModuleData memory moduleData =
-    ModuleData({module: IExternalSwapModule(address(module)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
+      ModuleData({module: IExternalSwapModule(address(module)), data: abi.encode(SWAP_OPERATIONS_JELLYSWAP, deadline)});
 
     console.log("ModuleData encoded successfully");
     return moduleData;
@@ -145,7 +145,8 @@ contract BalancerV1ModuleDeployer is ModuleDeployer, StdCheats {
     path[1] = address(jTSLAv1_SEI);
 
     // Get spot price from pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(smallAmount, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) =
+      ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(smallAmount, path);
     uint256 spotPrice = amounts[1].amount;
 
     // Calculate the current tick and add a large buffer

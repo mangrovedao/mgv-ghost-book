@@ -19,7 +19,7 @@ contract MangroveGhostBookUniswapV2Test is BaseMangroveTest, BaseUniswapV2Swappe
     super.setUp();
 
     // Set up OLKey for the market
-    ol = OLKey({outbound_tkn: address(USDT), inbound_tkn: address(WETH), tickSpacing: 1});
+    ol = OLKey({outbound_tkn: address(USDT), inbound_tkn: address(WSEI), tickSpacing: 1});
 
     // Deploy GhostBook and UniswapV2Swapper
     ghostBook = new MangroveGhostBook(address(mgv));
@@ -114,17 +114,17 @@ contract MangroveGhostBookUniswapV2Test is BaseMangroveTest, BaseUniswapV2Swappe
     users.maker1.newOfferByTick(betterTick, 10_000e6, 2 ** 18);
 
     // Record balances before swap
-    uint256 takerWethBefore = WETH.balanceOf(users.taker1);
+    uint256 takerWSEIBefore = WSEI.balanceOf(users.taker1);
     uint256 takerUSDTBefore = USDT.balanceOf(users.taker1);
 
     vm.startPrank(users.taker1);
     (uint256 takerGot, uint256 takerGave,,) = ghostBook.marketOrderByTick(ol, maxTick, amountToSell, data);
 
     // Verify balances after swap
-    uint256 takerWethAfter = WETH.balanceOf(users.taker1);
+    uint256 takerWSEIAfter = WSEI.balanceOf(users.taker1);
     uint256 takerUSDTAfter = USDT.balanceOf(users.taker1);
 
-    assertEq(takerWethBefore - takerWethAfter, takerGave);
+    assertEq(takerWSEIBefore - takerWSEIAfter, takerGave);
     assertEq(takerUSDTAfter - takerUSDTBefore, takerGot);
   }
 }
