@@ -20,17 +20,17 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     vm.assume(mgvTickDepeg < 10_000);
     uint256 amountToSell = 1 ether;
 
-    deal(address(WETH), address(swapper), amountToSell);
+    deal(address(WSEI), address(swapper), amountToSell);
 
     OLKey memory ol = OLKey({
       outbound_tkn: address(USDT),
-      inbound_tkn: address(WETH),
+      inbound_tkn: address(WSEI),
       tickSpacing: 0 // irrelevant for the test
     });
 
     // First check what tick the router would give for a small amount
     address[] memory testPath = new address[](2);
-    testPath[0] = address(WETH);
+    testPath[0] = address(WSEI);
     testPath[1] = address(USDT);
 
     uint256 testAmount = amountToSell / 10; // calculate execution price for a smaller amount, depending on the max tick gap it will swap it all or not
@@ -40,7 +40,7 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     // Then set max tick based on this real execution price
     Tick maxTick = Tick.wrap(Tick.unwrap(realSpotTick) + int256(mgvTickDepeg));
 
-    uint256 tokenInBalanceBefore = IERC20(WETH).balanceOf(address(swapper));
+    uint256 tokenInBalanceBefore = IERC20(WSEI).balanceOf(address(swapper));
     uint256 tokenOutBalanceBefore = IERC20(USDT).balanceOf(address(ghostBook));
 
     uint256 deadline = block.timestamp + 3600; // 1 hour from now
@@ -48,7 +48,7 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     vm.prank(ghostBook);
     swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(DRAGONSWAP_ROUTER, deadline));
 
-    uint256 tokenInBalanceAfter = IERC20(WETH).balanceOf(address(ghostBook));
+    uint256 tokenInBalanceAfter = IERC20(WSEI).balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = IERC20(USDT).balanceOf(address(ghostBook));
 
     assertNotEq(tokenOutBalanceAfter - tokenOutBalanceBefore, 0, "No tokens received");
@@ -64,13 +64,13 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     // Bound amount between 0.01 ETH and 10 ETH
     amountToSell = bound(amountToSell, 0.01 ether, 10 ether);
 
-    deal(address(WETH), address(swapper), amountToSell);
+    deal(address(WSEI), address(swapper), amountToSell);
 
-    OLKey memory ol = OLKey({outbound_tkn: address(USDT), inbound_tkn: address(WETH), tickSpacing: 0});
+    OLKey memory ol = OLKey({outbound_tkn: address(USDT), inbound_tkn: address(WSEI), tickSpacing: 0});
 
     // Get path for swap
     address[] memory path = new address[](2);
-    path[0] = address(WETH);
+    path[0] = address(WSEI);
     path[1] = address(USDT);
 
     // Get amounts out to calculate current price
@@ -80,7 +80,7 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     Tick spotTick = TickLib.tickFromVolumes(amountToSell, amounts[1]);
     Tick maxTick = Tick.wrap(Tick.unwrap(spotTick) + 2000); // Large buffer to ensure trade goes through
 
-    uint256 tokenInBalanceBefore = IERC20(WETH).balanceOf(address(swapper));
+    uint256 tokenInBalanceBefore = IERC20(WSEI).balanceOf(address(swapper));
     uint256 tokenOutBalanceBefore = IERC20(USDT).balanceOf(address(ghostBook));
 
     uint256 deadline = block.timestamp + 3600;
@@ -88,7 +88,7 @@ contract UniswapV2SwapperTest is BaseUniswapV2SwapperTest {
     vm.prank(ghostBook);
     swapper.externalSwap(ol, amountToSell, maxTick, abi.encode(DRAGONSWAP_ROUTER, deadline));
 
-    uint256 tokenInBalanceAfter = IERC20(WETH).balanceOf(address(ghostBook));
+    uint256 tokenInBalanceAfter = IERC20(WSEI).balanceOf(address(ghostBook));
     uint256 tokenOutBalanceAfter = IERC20(USDT).balanceOf(address(ghostBook));
 
     uint256 amountOut = tokenOutBalanceAfter - tokenOutBalanceBefore;

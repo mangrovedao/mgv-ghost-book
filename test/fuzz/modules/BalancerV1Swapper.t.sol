@@ -32,7 +32,8 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     path[1] = address(jTSLAv1_SEI);
 
     // Get the current spot price from Balancer pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) =
+      ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
     Tick realSpotTick = TickLib.tickFromVolumes(amountToSell, amounts[1].amount);
 
     // Then set max tick based on this real execution price
@@ -69,7 +70,8 @@ contract BalancerV1SwapperTest is BaseBalancerV1SwapperTest {
     path[1] = address(jTSLAv1_SEI);
 
     // Get spot price from pool
-    (ISwapOperations.SwapAmount[] memory amounts,) = ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
+    (ISwapOperations.SwapAmount[] memory amounts,) =
+      ISwapOperations(SWAP_OPERATIONS_JELLYSWAP).getAmountsOut(amountToSell, path);
     uint256 spotPrice = amounts[1].amount;
 
     // Calculate the current tick and add a large buffer
